@@ -1,39 +1,50 @@
 #include "linalg.h"
 #include <stdlib.h>
 
-struct matrix
+struct _matrix
 {
     float *data;
     unsigned r;
     unsigned c;
 };
 
-struct csr_matrix
+struct _csr_matrix
 {
     float *data;
     unsigned *col_ind;
     unsigned *row_ptr;
     unsigned r;
     unsigned c;
-}
+};
 
-struct vector 
+struct _vector 
 {
     float *data;
     unsigned dim;
 };
 
-void delete(matrix_ptr *pm)
+static inline void reset_ptr(void **ptr)
 {
-    
+    free(*ptr);
+    *ptr = NULL;
 }
 
-void delete(csr_matrix_ptr *pcm)
+void delete_matrix(matrix *pm)
 {
-    
+    reset_ptr((void **) &((*pm)->data));
+    reset_ptr((void **) pm);
 }
 
-void delete(vector_ptr     *pv )
+void delete_csr_matrix(csr_matrix *pcm)
 {
-    
+    reset_ptr((void **) &((*pcm)->data));
+    reset_ptr((void **) &((*pcm)->col_ind));
+    reset_ptr((void **) &((*pcm)->row_ptr));
+    reset_ptr((void **) pcm);
+}
+
+void delete_vector(vector *pv)
+{
+    reset_ptr((void **) &((*pv)->data));
+    reset_ptr((void **) pv);
 }

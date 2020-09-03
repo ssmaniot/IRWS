@@ -1,16 +1,12 @@
 #ifndef LINALG_H
 #define LINALG_H 
 
-struct matrix;
-struct csr_matrix;
-struct vector;
+typedef struct _matrix     *matrix;
+typedef struct _csr_matrix *csr_matrix;
+typedef struct _vector     *vector;
 
-typedef struct matrix     *matrix_ptr;
-typedef struct csr_matrix *csr_matrix_ptr;
-typedef struct vector     *vector_ptr;
-
-void delete(matrix_ptr     *pm );
-void delete(csr_matrix_ptr *pcm);
-void delete(vector_ptr     *pv );
+void delete_matrix(matrix *pm);
+void delete_csr_matrix(csr_matrix *pcm);
+void delete_vector(vector *pv);
 
 #endif
