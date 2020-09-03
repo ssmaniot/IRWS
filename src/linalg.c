@@ -49,6 +49,17 @@ csr_matrix new_csr_matrix(unsigned row, unsigned col)
     return NULL;
 }
 
+csr_matrix new_csr_matrix_(float *v, unsigned *ci, unsigned *rp, unsigned row, unsigned col)
+{
+    csr_matrix m = (csr_matrix) malloc(sizeof(struct _csr_matrix));
+    m->data = v;
+    m->col_ind = ci;
+    m->row_ptr = rp;
+    m->r = row;
+    m->c = col;
+    return m;
+}
+
 vector new_vector(unsigned dim)
 {
     vector v = (vector) malloc(sizeof(struct _vector));
@@ -143,8 +154,28 @@ vector mmul(matrix m, vector v)
     return r;
 }
 
-/* TODO: implement smmul */
 vector smmul(csr_matrix m, vector v)
 {
-    return NULL;
+    unsigned i, j;
+    vector r;
+    
+    if (m->r != v->dim) 
+    {
+        perror("ERROR - mmul() dimension mismatch: m[%u,%u] x v[%u]");
+        exit(EXIT_FAILURE);
+    }
+    
+    r = new_vector(v->dim);
+    for (i = 0; i < m->r; ++i)
+    {
+        r->data[i] = 0.f;
+        j = m->row_ptr[i];
+        while (j < m->row_ptr[i+1])
+        {
+            r->data[i] += m->data[j] * v->data[m->col_ind[j]];
+            ++j;
+        }
+    }
+    
+    return r;
 }
