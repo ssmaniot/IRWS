@@ -23,4 +23,7 @@ void print_vector(vector v);
 vector mmul(matrix m, vector v);
 vector smmul(csr_matrix m, vector v);
 
+void fill_row(matrix m, unsigned row, float val);
+void fill_csr_row(csr_matrix m, unsigned row, float val);
+
 #endif

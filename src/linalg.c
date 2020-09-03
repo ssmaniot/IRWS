@@ -120,7 +120,22 @@ void print_matrix(matrix m)
 /* TODO: implement sparse matrix printer */
 void print_csr_matrix(csr_matrix cm)
 {
-    
+    unsigned i, j, k;
+    for (i = 0; i < cm->r; ++i)
+    {
+        k = cm->row_ptr[i];
+        j = 0;
+        for (j = 0; j < cm->c; ++j)
+            if (k < cm->row_ptr[i+1] && j == cm->col_ind[k])
+            {
+                printf("%.1f ", cm->data[k]);
+                ++k;
+            }
+            else 
+                printf("0.0 ");
+        putchar('\n');
+    }
+    putchar('\n');
 }
 
 void print_vector(vector v)
@@ -178,4 +193,66 @@ vector smmul(csr_matrix m, vector v)
     }
     
     return r;
+}
+
+/* Row-filler functions */
+void fill_row(matrix m, unsigned row, float val)
+{
+    unsigned col;
+    for (col = 0; col < m->c; ++col)
+        m->data[row * m->c + col] = val;
+}
+
+/* TODO: fix this! When substitute with val=0.f there are issues. */
+void fill_csr_row(csr_matrix m, unsigned row, float val)
+{
+    float *data;
+    unsigned *col_ind;
+    unsigned len, diff;
+    unsigned i, j;
+    
+    if (val == 0.f)
+    {
+        len = m->row_ptr[m->r] - m->row_ptr[row+1] + m->row_ptr[row];
+        col_ind = (unsigned *) malloc(sizeof(unsigned) * len);
+        diff = m->row_ptr[row] - m->row_ptr[row+1];
+    }
+    else 
+    {
+        len = m->row_ptr[m->r] - m->row_ptr[row+1] + m->row_ptr[row] + m->c;
+        col_ind = (unsigned *) malloc(sizeof(unsigned) * len);
+        diff = m->row_ptr[row] - m->row_ptr[row+1] + m->c;
+    }
+    data = (float *) malloc(sizeof(float) * len);
+    
+    /* copy data and indexes before row */
+    for (j = 0; j < m->row_ptr[row]; ++j)
+    {
+        data[j] = m->data[j];
+        col_ind[j] = m->col_ind[j];
+    }
+    
+    /* copy data and shifted indexes after row */
+    for (j = m->row_ptr[row+1]; j < m->row_ptr[m->r]; ++j)
+    {
+        data[j + diff] = m->data[j];
+        col_ind[j + diff] = m->col_ind[j] + diff;
+    }
+    
+    /* update row pointers after row */
+    for (i = row + 1; i <= m->r; ++i)
+        m->row_ptr[i] += diff;
+    
+    /* insert new value if new value is nonzero */
+    if (val != 0.f)
+        for (j = m->row_ptr[row]; j < m->row_ptr[row+1]; ++j)
+        {
+            data[j] = val;
+            col_ind[j] = j - m->row_ptr[row];
+        }
+    
+    reset_ptr((void **) (&(m->data)));
+    m->data = data;
+    reset_ptr((void **) (&(m->col_ind)));
+    m->col_ind = col_ind;
 }

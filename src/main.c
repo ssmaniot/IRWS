@@ -27,6 +27,13 @@ int main(int argc, char *argv[])
     r = smmul(m, v);
     print_vector(r);
     
+    fill_csr_row(m, 0, 2.f);
+    print_csr_matrix(m);
+    print_vector(v);
+    delete_vector(&r);
+    r = smmul(m, v);
+    print_vector(r);
+    
     delete_csr_matrix(&m);
     delete_vector(&v);
     delete_vector(&r);
