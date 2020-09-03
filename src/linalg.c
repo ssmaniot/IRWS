@@ -35,13 +35,10 @@ matrix new_matrix(unsigned row, unsigned col)
     return m;
 }
 
-matrix new_matrix_(float v[], unsigned row, unsigned col)
+matrix new_matrix_(float *v, unsigned row, unsigned col)
 {
-    unsigned i;
     matrix m = (matrix) malloc(sizeof(struct _matrix));
-    m->data = (float *) malloc(sizeof(float) * row * col);
-    for (i = 0; i < row*col; ++i)
-        m->data[i] = v[i];
+    m->data = v;
     m->r = row;
     m->c = col;
     return m;
@@ -56,6 +53,14 @@ vector new_vector(unsigned dim)
 {
     vector v = (vector) malloc(sizeof(struct _vector));
     v->data = (float *) malloc(sizeof(float) * dim);
+    v->dim = dim;
+    return v;
+}
+
+vector new_vector_(float *d, unsigned dim)
+{
+    vector v = (vector) malloc(sizeof(struct _vector));
+    v->data = d;
     v->dim = dim;
     return v;
 }
@@ -95,9 +100,10 @@ void print_matrix(matrix m)
     for (i = 0; i < m->r; ++i)
     {
         for (j = 0; j < m->c; ++j)
-            printf("%2.1f ", m->data[i*m->r+j]);
+            printf("%.1f ", m->data[i*m->r+j]);
         putchar('\n');
     }
+    putchar('\n');
 }
 
 void print_csr_matrix(csr_matrix cm)
@@ -109,7 +115,8 @@ void print_vector(vector v)
 {
     unsigned i;
     for (i = 0; i < v->dim; ++i)
-        printf("%f\n", v->data[i]);
+        printf("%.1f\n", v->data[i]);
+    putchar('\n');
 }
 
 /* matrix/vector multiplications */
