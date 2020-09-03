@@ -106,6 +106,7 @@ void print_matrix(matrix m)
     putchar('\n');
 }
 
+/* TODO: implement sparse matrix printer */
 void print_csr_matrix(csr_matrix cm)
 {
     
@@ -142,6 +143,7 @@ vector mmul(matrix m, vector v)
     return r;
 }
 
+/* TODO: implement smmul */
 vector smmul(csr_matrix m, vector v)
 {
     return NULL;
