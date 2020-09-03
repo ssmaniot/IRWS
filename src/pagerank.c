@@ -1,4 +1,5 @@
 #include "pagerank.h"
+#include <stdlib.h>
 
 vector pagerank(matrix A)
 {
