@@ -18,6 +18,7 @@ void delete_vector(vector *pv);
 
 void print_matrix(matrix m);
 void print_csr_matrix(csr_matrix cm);
+void print_csr_matrix_(csr_matrix cm);
 void print_vector(vector v);
 
 vector mmul(matrix m, vector v);

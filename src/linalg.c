@@ -77,8 +77,9 @@ vector new_vector_(float *d, unsigned dim)
 }
 
 /* helper function for free/set to NULL */
-static inline void reset_ptr(void **ptr)
+static inline void _reset_ptr(void **ptr)
 {
+    if (*ptr == NULL) return;
     free(*ptr);
     *ptr = NULL;
 }
@@ -86,22 +87,25 @@ static inline void reset_ptr(void **ptr)
 /* delete functions */
 void delete_matrix(matrix *pm)
 {
-    reset_ptr((void **) &((*pm)->data));
-    reset_ptr((void **) pm);
+    if (*pm == NULL) return;
+    _reset_ptr((void **) &((*pm)->data));
+    _reset_ptr((void **) pm);
 }
 
 void delete_csr_matrix(csr_matrix *pcm)
 {
-    reset_ptr((void **) &((*pcm)->data));
-    reset_ptr((void **) &((*pcm)->col_ind));
-    reset_ptr((void **) &((*pcm)->row_ptr));
-    reset_ptr((void **) pcm);
+    if (*pcm == NULL) return;
+    _reset_ptr((void **) &((*pcm)->data));
+    _reset_ptr((void **) &((*pcm)->col_ind));
+    _reset_ptr((void **) &((*pcm)->row_ptr));
+    _reset_ptr((void **) pcm);
 }
 
 void delete_vector(vector *pv)
 {
-    reset_ptr((void **) &((*pv)->data));
-    reset_ptr((void **) pv);
+    if (*pv == NULL) return;
+    _reset_ptr((void **) &((*pv)->data));
+    _reset_ptr((void **) pv);
 }
 
 /* printer functions */
@@ -135,6 +139,39 @@ void print_csr_matrix(csr_matrix cm)
                 printf("0.0 ");
         putchar('\n');
     }
+    putchar('\n');
+}
+
+void print_csr_matrix_(csr_matrix cm)
+{
+    unsigned i;
+    
+    printf("cm->data    = {");
+    for (i = 0; i < cm->row_ptr[cm->r]; ++i)
+    {
+        printf("%.1f", cm->data[i]);
+        if (i < cm->row_ptr[cm->r] - 1)
+            printf(", ");
+    }
+    printf("}\n");
+    printf("cm->col_ind = {");
+    for (i = 0; i < cm->row_ptr[cm->r]; ++i)
+    {
+        printf("%2u", cm->col_ind[i]);
+        if (i < cm->row_ptr[cm->r] - 1)
+            printf(", ");
+    }
+    printf("}\n");
+    printf("cm->row_ptr = {");
+    for (i = 0; i <= cm->r; ++i)
+    {
+        printf("%2u", cm->row_ptr[i]);
+        if (i < cm->r)
+            printf(", ");
+    }
+    printf("}\n");
+    printf("cm->r = %2u\n", cm->r);
+    printf("cm->c = %2u\n", cm->c);
     putchar('\n');
 }
 
@@ -203,8 +240,130 @@ void fill_row(matrix m, unsigned row, float val)
         m->data[row * m->c + col] = val;
 }
 
-/* TODO: fix this! When substitute with val=0.f there are issues. */
 void fill_csr_row(csr_matrix m, unsigned row, float val)
+{
+    float *data;
+    unsigned *col_ind;
+    unsigned pc, bc, nc;
+    unsigned nsize;
+    unsigned i;
+    
+    pc = m->row_ptr[row];
+    bc = m->row_ptr[row+1] - m->row_ptr[row];
+    nc = m->row_ptr[m->r] - bc;
+    
+    nsize = (val == 0.f) ? pc + m->c + nc : pc + nc;
+    
+    data = (float *) malloc(sizeof(float) * nsize);
+    col_ind = (unsigned *) malloc(sizeof(unsigned) * nsize);
+    
+    for (i = 0; i < m->row_ptr[row]; ++i)
+    {
+        data[i] = m->data[i];
+        col_ind[i] = m->col_ind[i];
+    }
+    
+    if (val == 0.f)
+    {
+        for (i = m->row_ptr[row+1]; i < m->row_ptr[m->r]; ++i)
+        {
+            data[i-bc] = m->data[i];
+            col_ind[i-bc] = m->col_ind[i];
+        }
+        for (i = row + 1; i <= m->r; ++i)
+            m->row_ptr[i] -= bc;
+    }
+    else 
+    {
+        for (i = 0; i < m->c; ++i)
+        {
+            data[m->row_ptr[row]+i] = val;
+            col_ind[m->row_ptr[row]+i] = i;
+        }
+        for (i = m->row_ptr[row+1]; i < m->row_ptr[m->r]; ++i)
+        {
+            data[i+m->c-bc] = m->data[i];
+            col_ind[i+m->c-bc] = m->col_ind[i];
+        }
+        for (i = row + 1; i <= m->r; ++i)
+            m->row_ptr[i] += m->c - bc;
+    }
+    
+    _reset_ptr((void **) (&(m->data)));
+    m->data = data;
+    _reset_ptr((void **) (&(m->col_ind)));
+    m->col_ind = col_ind;
+}
+
+void fill_csr_row_(csr_matrix m, unsigned row, float val)
+{
+    float *data = NULL;
+    unsigned *col_ind = NULL;
+    unsigned len, diff;
+    unsigned i;
+    
+    printf("fill_csr_row\n");
+    /* compute the number of elements in the row */
+    diff = m->row_ptr[row+1] - m->row_ptr[row];
+    /* compute the length of the data array after the deletion of the elements in the row */
+    len = m->row_ptr[m->r] - diff;
+    
+    /* allocate the new arrays for data and column index */
+    data = (float *) malloc(sizeof(float) * len);
+    col_ind = (unsigned *) malloc(sizeof(unsigned) * len);
+    
+    /* fill the data before the row to be edited */
+    for (i = 0; i < m->row_ptr[row]; ++i)
+    {
+        data[i] = m->data[i];
+        col_ind[i] = m->col_ind[i];
+    }
+    
+    /* if val = 0, we copy the elements after the edited row and shifts the row pointers */
+    if (val == 0.f)
+    {
+        printf("case val = 0.f\n");
+        for (i = m->row_ptr[row+1]; i < m->row_ptr[m->r]; ++i)
+        {
+            data[i] = m->data[i+diff];
+            col_ind[i] = m->col_ind[i];
+            m->row_ptr[i] -= diff;
+        }
+        for (i = row + 1; i <= m->r; ++i)
+            m->row_ptr[i] -= diff;
+    }
+    else 
+    {
+        printf("case val != 0.f\n");
+        /* first, we insert the new values on the row */
+        printf("first, we insert the new values on the row\n");
+        for (i = 0; i < m->r; ++i)
+        {
+            data[m->row_ptr[row]+i] = val;
+            col_ind[m->row_ptr[row]+i] = i;
+        }
+        /* then, we copy the data from row+1 on */
+        diff = m->c - diff;
+        printf("then, we copy the data from row+1 on");
+        for (i = m->row_ptr[row+1]; i < m->row_ptr[m->r]; ++i)
+        {
+            data[i+diff] = data[i];
+            col_ind[i+diff] = col_ind[i] + diff;
+        }
+        /* finally, we shift the row pointers */
+        printf("finally, we shift the row pointers");
+        for (i = row + 1; i <= m->r; ++i)
+            m->row_ptr[i] += diff;
+    }
+    
+    _reset_ptr((void **) (&(m->data)));
+    m->data = data;
+    _reset_ptr((void **) (&(m->col_ind)));
+    m->col_ind = col_ind;
+}
+
+/* TODO: fix this! When substitute with val=0.f there are issues. */
+void fill_csr_row__(csr_matrix m, unsigned row, float val)
 {
     float *data;
     unsigned *col_ind;
@@ -251,8 +410,8 @@ void fill_csr_row(csr_matrix m, unsigned row, float val)
             col_ind[j] = j - m->row_ptr[row];
         }
     
-    reset_ptr((void **) (&(m->data)));
+    _reset_ptr((void **) (&(m->data)));
     m->data = data;
-    reset_ptr((void **) (&(m->col_ind)));
+    _reset_ptr((void **) (&(m->col_ind)));
     m->col_ind = col_ind;
 }
