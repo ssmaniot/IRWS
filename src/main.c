@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     r = smmul(m, v);
     print_vector(r);
     
-    fill_csr_row(m, 0, 5.f);
+    fill_csr_row(m, 1, 5.f);
     print_csr_matrix(m);
     print_csr_matrix_(m);
     print_vector(v);

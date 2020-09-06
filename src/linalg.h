@@ -21,6 +21,8 @@ void print_csr_matrix(csr_matrix cm);
 void print_csr_matrix_(csr_matrix cm);
 void print_vector(vector v);
 
+vector svmul(float f, vector v);
+float dot(vector v1, vector v2);
 vector mmul(matrix m, vector v);
 vector smmul(csr_matrix m, vector v);
 

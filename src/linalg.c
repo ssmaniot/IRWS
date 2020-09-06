@@ -1,6 +1,7 @@
 #include "linalg.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 /* data definition */
 struct _matrix
@@ -183,6 +184,33 @@ void print_vector(vector v)
     putchar('\n');
 }
 
+/* scalar x vector */
+vector svmul(float f, vector v)
+{
+    vector r;
+    unsigned i;
+
+    r = (vector) malloc(sizeof(_vector));
+    r->data = (float *) malloc(sizeof(float) * v->dim);
+    r->dim = v->dim;
+    for (i = 0; i < r->dim; ++i)
+        r->data[i] = v->data[i] * f;
+
+    return r;
+}
+
+/* scalar product between vectors */
+float dot(vector v1, vector v2)
+{
+    float res = 0.f;
+    unsigned i;
+
+    for (i = 0; i < v1->dim; ++i)
+        res += v1->data[i] * v2->data[i];
+
+    return res;
+}
+
 /* matrix/vector multiplications */
 vector mmul(matrix m, vector v)
 {
@@ -252,11 +280,11 @@ void fill_csr_row(csr_matrix m, unsigned row, float val)
     bc = m->row_ptr[row+1] - m->row_ptr[row];
     nc = m->row_ptr[m->r] - bc;
     
-    nsize = (val == 0.f) ? pc + m->c + nc : pc + nc;
+    nsize = (val == 0.f) ? pc + nc : pc + m->c + nc;
     
     data = (float *) malloc(sizeof(float) * nsize);
     col_ind = (unsigned *) malloc(sizeof(unsigned) * nsize);
-    
+
     for (i = 0; i < m->row_ptr[row]; ++i)
     {
         data[i] = m->data[i];
@@ -288,127 +316,6 @@ void fill_csr_row(csr_matrix m, unsigned row, float val)
         for (i = row + 1; i <= m->r; ++i)
             m->row_ptr[i] += m->c - bc;
     }
-    
-    _reset_ptr((void **) (&(m->data)));
-    m->data = data;
-    _reset_ptr((void **) (&(m->col_ind)));
-    m->col_ind = col_ind;
-}
-
-void fill_csr_row_(csr_matrix m, unsigned row, float val)
-{
-    float *data = NULL;
-    unsigned *col_ind = NULL;
-    unsigned len, diff;
-    unsigned i;
-    
-    printf("fill_csr_row\n");
-    /* compute the number of elements in the row */
-    diff = m->row_ptr[row+1] - m->row_ptr[row];
-    /* compute the length of the data array after the deletion of the elements in the row */
-    len = m->row_ptr[m->r] - diff;
-    
-    /* allocate the new arrays for data and column index */
-    data = (float *) malloc(sizeof(float) * len);
-    col_ind = (unsigned *) malloc(sizeof(unsigned) * len);
-    
-    /* fill the data before the row to be edited */
-    for (i = 0; i < m->row_ptr[row]; ++i)
-    {
-        data[i] = m->data[i];
-        col_ind[i] = m->col_ind[i];
-    }
-    
-    /* if val = 0, we copy the elements after the edited row and shifts the row pointers */
-    if (val == 0.f)
-    {
-        printf("case val = 0.f\n");
-        for (i = m->row_ptr[row+1]; i < m->row_ptr[m->r]; ++i)
-        {
-            data[i] = m->data[i+diff];
-            col_ind[i] = m->col_ind[i];
-            m->row_ptr[i] -= diff;
-        }
-        for (i = row + 1; i <= m->r; ++i)
-            m->row_ptr[i] -= diff;
-    }
-    else 
-    {
-        printf("case val != 0.f\n");
-        /* first, we insert the new values on the row */
-        printf("first, we insert the new values on the row\n");
-        for (i = 0; i < m->r; ++i)
-        {
-            data[m->row_ptr[row]+i] = val;
-            col_ind[m->row_ptr[row]+i] = i;
-        }
-        /* then, we copy the data from row+1 on */
-        diff = m->c - diff;
-        printf("then, we copy the data from row+1 on");
-        for (i = m->row_ptr[row+1]; i < m->row_ptr[m->r]; ++i)
-        {
-            data[i+diff] = data[i];
-            col_ind[i+diff] = col_ind[i] + diff;
-        }
-        /* finally, we shift the row pointers */
-        printf("finally, we shift the row pointers");
-        for (i = row + 1; i <= m->r; ++i)
-            m->row_ptr[i] += diff;
-    }
-    
-    _reset_ptr((void **) (&(m->data)));
-    m->data = data;
-    _reset_ptr((void **) (&(m->col_ind)));
-    m->col_ind = col_ind;
-}
-
-/* TODO: fix this! When substitute with val=0.f there are issues. */
-void fill_csr_row__(csr_matrix m, unsigned row, float val)
-{
-    float *data;
-    unsigned *col_ind;
-    unsigned len, diff;
-    unsigned i, j;
-    
-    if (val == 0.f)
-    {
-        len = m->row_ptr[m->r] - m->row_ptr[row+1] + m->row_ptr[row];
-        col_ind = (unsigned *) malloc(sizeof(unsigned) * len);
-        diff = m->row_ptr[row] - m->row_ptr[row+1];
-    }
-    else 
-    {
-        len = m->row_ptr[m->r] - m->row_ptr[row+1] + m->row_ptr[row] + m->c;
-        col_ind = (unsigned *) malloc(sizeof(unsigned) * len);
-        diff = m->row_ptr[row] - m->row_ptr[row+1] + m->c;
-    }
-    data = (float *) malloc(sizeof(float) * len);
-    
-    /* copy data and indexes before row */
-    for (j = 0; j < m->row_ptr[row]; ++j)
-    {
-        data[j] = m->data[j];
-        col_ind[j] = m->col_ind[j];
-    }
-    
-    /* copy data and shifted indexes after row */
-    for (j = m->row_ptr[row+1]; j < m->row_ptr[m->r]; ++j)
-    {
-        data[j + diff] = m->data[j];
-        col_ind[j + diff] = m->col_ind[j] + diff;
-    }
-    
-    /* update row pointers after row */
-    for (i = row + 1; i <= m->r; ++i)
-        m->row_ptr[i] += diff;
-    
-    /* insert new value if new value is nonzero */
-    if (val != 0.f)
-        for (j = m->row_ptr[row]; j < m->row_ptr[row+1]; ++j)
-        {
-            data[j] = val;
-            col_ind[j] = j - m->row_ptr[row];
-        }
     
     _reset_ptr((void **) (&(m->data)));
     m->data = data;
