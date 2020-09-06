@@ -93,13 +93,13 @@ void delete_matrix(matrix *pm)
     _reset_ptr((void **) pm);
 }
 
-void delete_csr_matrix(csr_matrix *pcm)
+void delete_csr_matrix(csr_matrix *pm)
 {
-    if (*pcm == NULL) return;
-    _reset_ptr((void **) &((*pcm)->data));
-    _reset_ptr((void **) &((*pcm)->col_ind));
-    _reset_ptr((void **) &((*pcm)->row_ptr));
-    _reset_ptr((void **) pcm);
+    if (*pm == NULL) return;
+    _reset_ptr((void **) &((*pm)->data));
+    _reset_ptr((void **) &((*pm)->col_ind));
+    _reset_ptr((void **) &((*pm)->row_ptr));
+    _reset_ptr((void **) pm);
 }
 
 void delete_vector(vector *pv)
@@ -123,17 +123,17 @@ void print_matrix(matrix m)
 }
 
 /* TODO: implement sparse matrix printer */
-void print_csr_matrix(csr_matrix cm)
+void print_csr_matrix(csr_matrix m)
 {
     unsigned i, j, k;
-    for (i = 0; i < cm->r; ++i)
+    for (i = 0; i < m->r; ++i)
     {
-        k = cm->row_ptr[i];
+        k = m->row_ptr[i];
         j = 0;
-        for (j = 0; j < cm->c; ++j)
-            if (k < cm->row_ptr[i+1] && j == cm->col_ind[k])
+        for (j = 0; j < m->c; ++j)
+            if (k < m->row_ptr[i+1] && j == m->col_ind[k])
             {
-                printf("%.1f ", cm->data[k]);
+                printf("%.1f ", m->data[k]);
                 ++k;
             }
             else 
@@ -143,36 +143,36 @@ void print_csr_matrix(csr_matrix cm)
     putchar('\n');
 }
 
-void print_csr_matrix_(csr_matrix cm)
+void print_csr_matrix_(csr_matrix m)
 {
     unsigned i;
     
-    printf("cm->data    = {");
-    for (i = 0; i < cm->row_ptr[cm->r]; ++i)
+    printf("m->data    = {");
+    for (i = 0; i < m->row_ptr[m->r]; ++i)
     {
-        printf("%.1f", cm->data[i]);
-        if (i < cm->row_ptr[cm->r] - 1)
+        printf("%.1f", m->data[i]);
+        if (i < m->row_ptr[m->r] - 1)
             printf(", ");
     }
     printf("}\n");
-    printf("cm->col_ind = {");
-    for (i = 0; i < cm->row_ptr[cm->r]; ++i)
+    printf("m->col_ind = {");
+    for (i = 0; i < m->row_ptr[m->r]; ++i)
     {
-        printf("%2u", cm->col_ind[i]);
-        if (i < cm->row_ptr[cm->r] - 1)
+        printf("%2u", m->col_ind[i]);
+        if (i < m->row_ptr[m->r] - 1)
             printf(", ");
     }
     printf("}\n");
-    printf("cm->row_ptr = {");
-    for (i = 0; i <= cm->r; ++i)
+    printf("m->row_ptr = {");
+    for (i = 0; i <= m->r; ++i)
     {
-        printf("%2u", cm->row_ptr[i]);
-        if (i < cm->r)
+        printf("%2u", m->row_ptr[i]);
+        if (i < m->r)
             printf(", ");
     }
     printf("}\n");
-    printf("cm->r = %2u\n", cm->r);
-    printf("cm->c = %2u\n", cm->c);
+    printf("m->r = %2u\n", m->r);
+    printf("m->c = %2u\n", m->c);
     putchar('\n');
 }
 
@@ -184,15 +184,31 @@ void print_vector(vector v)
     putchar('\n');
 }
 
+unsigned get_csr_row(csr_matrix m)
+{
+    return m->r;
+}
+
+/* Operations on structures */
+vector vsum(vector v1, vector v2)
+{
+    vector r;
+    unsigned i;
+
+    r = new_vector(v1->dim);
+    for (i = 0; i < v1->dim; ++i)
+        r->data[i] = v1->data[i] + v2->data[i];
+
+    return r;
+}
+
 /* scalar x vector */
 vector svmul(float f, vector v)
 {
     vector r;
     unsigned i;
 
-    r = (vector) malloc(sizeof(struct _vector));
-    r->data = (float *) malloc(sizeof(float) * v->dim);
-    r->dim = v->dim;
+    r = new_vector(v->dim);
     for (i = 0; i < r->dim; ++i)
         r->data[i] = v->data[i] * f;
 
@@ -209,6 +225,21 @@ float dot(vector v1, vector v2)
         res += v1->data[i] * v2->data[i];
 
     return res;
+}
+
+/* L1-distance of v1 and v2 */
+float dist(vector v1, vector v2)
+{
+    float d = 0.0, di;
+    unsigned i;
+
+    for (i = 0; i < v1->dim; ++i)
+    {
+        di = v1->data - v2->data;
+        d += (di < 0) ? -di : di;
+    }
+
+    return d;
 }
 
 /* matrix/vector multiplications */
@@ -260,7 +291,15 @@ vector smmul(csr_matrix m, vector v)
     return r;
 }
 
-/* Row-filler functions */
+/* Filler functions */
+void fill_vector(vector v, float val)
+{
+    unsigned i;
+
+    for (i = 0; i < v->dim; ++i)
+        v->data[i] = val;
+}
+
 void fill_row(matrix m, unsigned row, float val)
 {
     unsigned col;
@@ -321,4 +360,16 @@ void fill_csr_row(csr_matrix m, unsigned row, float val)
     m->data = data;
     _reset_ptr((void **) (&(m->col_ind)));
     m->col_ind = col_ind;
+}
+
+vector find_dandling_nodes(csr_matrix m)
+{
+    vector d;
+    unsigned i;
+
+    d = new_vector(m->r);
+    for (i = 0; i < m->r; ++i)
+        d->data[i] = (m->row_ptr[i] == m->row_ptr[i+1]) ? 0.f : 1.f;
+
+    return d;
 }
