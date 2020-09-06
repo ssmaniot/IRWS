@@ -33,6 +33,7 @@ vector smmul(csr_matrix m, vector v);
 void fill_vector(vector v, float val);
 void fill_row(matrix m, unsigned row, float val);
 void fill_csr_row(csr_matrix m, unsigned row, float val);
+void normalize_csr_by_row(csr_matrix m);
 
 vector find_dandling_nodes(csr_matrix m);
 

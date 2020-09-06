@@ -18,6 +18,7 @@ vector csr_pagerank(csr_matrix At, float d)
     fill_vector(coef, (1.f - d) / (float) n);
     pk = new_vector(n);
     fill_vector(p, 1.f / (float) n);
+    normalize_csr_by_row(At);
 
     do 
     {

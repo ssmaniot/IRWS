@@ -362,6 +362,22 @@ void fill_csr_row(csr_matrix m, unsigned row, float val)
     m->col_ind = col_ind;
 }
 
+void normalize_csr_by_row(csr_matrix m)
+{
+    float sum;
+    unsigned i, j;
+
+    for (i = 0; i < m->r; ++i)
+    {
+        sum = 0.f;
+        for (j = m->row_ptr[i]; j < m->row_ptr[i+1]; ++i)
+            sum += m->data[i];
+        if (sum != 0.f)
+            for (j = m->row_ptr[i]; j < m->row_ptr[i+1]; ++i)
+                m->data[j] /= sum;
+    }
+}
+
 vector find_dandling_nodes(csr_matrix m)
 {
     vector d;
