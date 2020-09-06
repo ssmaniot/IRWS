@@ -190,7 +190,7 @@ vector svmul(float f, vector v)
     vector r;
     unsigned i;
 
-    r = (vector) malloc(sizeof(_vector));
+    r = (vector) malloc(sizeof(struct _vector));
     r->data = (float *) malloc(sizeof(float) * v->dim);
     r->dim = v->dim;
     for (i = 0; i < r->dim; ++i)
