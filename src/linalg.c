@@ -61,6 +61,37 @@ csr_matrix new_csr_matrix_(float *v, unsigned *ci, unsigned *rp, unsigned row, u
     return m;
 }
 
+csr_matrix new_csr_matrix__(float m[], unsigned row, unsigned col)
+{
+    unsigned i, j;
+    unsigned nonzero = 0;
+    csr_matrix r;
+
+    for (i = 0; i < row; ++i)
+        for (j = 0; j < col; ++j)
+            if (m[i*col+j] != 0.f)
+                ++nonzero;
+
+    r = (csr_matrix) malloc(sizeof(struct _csr_matrix));
+    r->data = (float *) malloc(sizeof(float) * nonzero);
+    r->col_ind = (unsigned *) malloc(sizeof(unsigned) * nonzero);
+    r->row_ptr = (unsigned *) malloc(sizeof(unsigned) * (row + 1));
+
+    r->row_ptr[0] = 0;
+    for (i = 0; i < row; ++i)
+    {
+        r->row_ptr[i+1] = r->row_ptr[i];
+        for (j = 0; j < col; ++j)
+            if (m[i*col+j] != 0.f)
+            {
+                r->data[i] = m[i*col+j];
+                r->col_ind[r->row_ptr[i+1]++] = j;
+            }
+    }
+
+    return r;
+}
+
 vector new_vector(unsigned dim)
 {
     vector v = (vector) malloc(sizeof(struct _vector));
