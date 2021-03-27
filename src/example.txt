@@ -1,0 +1,6 @@
+# Data
+# Me
+# Nodes: 3 Edges: 2
+# FromNodeId    ToNodeId
+0   1
+1   2
