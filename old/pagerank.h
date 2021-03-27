@@ -3,9 +3,9 @@
 
 #include "linalg.h"
 
-vector pagerank(matrix A);
-vector csr_pagerank(csr_matrix A);
-vector opt_pagerank(matrix A);
-vector opt_csr_pagerank(csr_matrix A);
+vector pagerank(matrix At, float d);
+vector csr_pagerank(csr_matrix At, float d);
+vector opt_pagerank(matrix At, float d);
+vector opt_csr_pagerank(csr_matrix At, float d);
 
 #endif
