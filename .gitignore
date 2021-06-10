@@ -1,0 +1,12 @@
+# Ignore binary files:
+pagerank
+
+# Ignore all .o:
+*.o
+
+# Ignore all folders:
+*/
+
+# Except for the following ones:
+!src/
+!data/
