@@ -1,5 +1,6 @@
 # Ignore binary files:
 pagerank
+hits
 
 # Ignore all .o:
 *.o
