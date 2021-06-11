@@ -24,7 +24,7 @@ typedef struct
     int no_nodes;
     int no_edges;
     int no_danglings;
-} CSR_data;
+} LCSR_data;
 
 /* Helper functions */
 int write_data(char path[], void *data, size_t nmemb, size_t size);
@@ -40,12 +40,13 @@ int main(int argc, char *argv[])
     /* Data to save/load CSR matrix */
     FILE *pdata;
     char dir[DNAME];
-    char row_ptr_p[PATH],  row_ptr_tp[PATH];
-    char col_ind_p[PATH],  col_ind_tp[PATH];
-    char val_p[PATH],      val_tp[PATH];
-    char danglings_p[PATH];
-    char csr_data_p[PATH], csr_data_tp[PATH];
-    CSR_data csr_data;
+    /*   Matrix L          Matrix L^T         */
+    char row_ptr_p[PATH],   row_ptr_tp[PATH];
+    char col_ind_p[PATH],   col_ind_tp[PATH];
+    char val_p[PATH],       val_tp[PATH];
+    char danglings_p[PATH], danglings_tp[PATH];
+    char lcsr_data_p[PATH], lcsr_data_tp[PATH];
+    LCSR_data lcsr_data;
     struct stat st = {0};
     
     /* Reading data from input file */
@@ -84,7 +85,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
     
-    /* Check if input data has already been compressed */
+    /* Init data folder name */
     strcpy(dir, "HITS_");
     strncpy(dir + 5, argv[1] + 5, strlen(argv[1])-9);
     dir[strlen(argv[1])-4] = '/';
@@ -92,19 +93,23 @@ int main(int argc, char *argv[])
     printf("%s\n", dir);
     exit(EXIT_SUCCESS);
     
-    /* Create CSR file names */
-    strcpy(row_ptr_p, dir);
-    strcat(row_ptr_p, "row_ptr.bin");
-    strcpy(col_ind_p, dir);
-    strcat(col_ind_p, "col_ind.bin");
-    strcpy(val_p, dir);
-    strcat(val_p, "val.bin");
-    strcpy(danglings_p, dir);
-    strcat(danglings_p, "danglings.bin");
-    strcpy(csr_data_p, dir);
-    strcat(csr_data_p, "csr_data.bin");
+    /* Create LCSR file names */
+    strcpy(row_ptr_p, dir);   strcat(row_ptr_p, "row_ptr.bin");
+    strcpy(col_ind_p, dir);   strcat(col_ind_p, "col_ind.bin");
+    strcpy(val_p, dir);       strcat(val_p, "val.bin");
+    strcpy(danglings_p, dir); strcat(danglings_p, "danglings.bin");
     
-    /* If data has NOT yet been compressed, then perform compression */
+    /* Create transposed LCSR file names */
+    strcpy(row_ptr_tp, dir);   strcat(row_ptr_tp, "row_ptr_t.bin");
+    strcpy(col_ind_tp, dir);   strcat(col_ind_tp, "col_ind_t.bin");
+    strcpy(val_tp, dir);       strcat(val_tp, "val_t.bin");
+    strcpy(danglings_tp, dir); strcat(danglings_tp, "danglings_t.bin");
+    
+    /* Create LCSR metadata file */
+    strcpy(lcsr_data_p, dir); strcat(lcsr_data_p, "lcsr_data.bin");
+    
+    /* Check if input data has already been compressed. 
+     * If data has NOT yet been compressed, then perform compression */
     if (stat(dir, &st) == -1)
     {
         printf("Input file data \"%s\" is not compressed, ready to perform compression...\n\n", argv[1]);
@@ -125,8 +130,8 @@ int main(int argc, char *argv[])
         printf("This graph has %d nodes and %d edges\n", no_nodes, no_edges);
         bytes = getline(&s, &slen, pf);
         
-        csr_data.no_nodes = no_nodes;
-        csr_data.no_edges = no_edges;
+        lcsr_data.no_nodes = no_nodes;
+        lcsr_data.no_edges = no_edges;
         
         /* Reading data from input file */
         i = 0;
@@ -157,7 +162,7 @@ int main(int argc, char *argv[])
             if (out_links[i] == 0)
                 danglings[j++] = i;
         
-        csr_data.no_danglings = no_danglings;
+        lcsr_data.no_danglings = no_danglings;
 
         printf("Sorting edges...\n");
         sort_input_data(from, to, no_edges);
@@ -221,7 +226,7 @@ int main(int argc, char *argv[])
            || (write_data(col_ind_p, (void *) col_ind, sizeof(int), no_edges) == EXIT_FAILURE)
            || (write_data(val_p, (void *) val, sizeof(double), no_edges) == EXIT_FAILURE)
            || (write_data(danglings_p, (void *) danglings, sizeof(int), no_danglings) == EXIT_FAILURE)
-           || (write_data(csr_data_p, (void *) &csr_data, sizeof(CSR_data), 1) == EXIT_FAILURE);
+           || (write_data(lcsr_data_p, (void *) &lcsr_data, sizeof(LCSR_data), 1) == EXIT_FAILURE);
         
         /* Input data */
         free(from); free(to);
@@ -244,10 +249,10 @@ int main(int argc, char *argv[])
     
     printf("Reading csr matrix data...\n");
     /* Reading CSR matrix metadata info from file */
-    pdata = fopen(csr_data_p, "rb");
-    bytes = fread(&no_nodes, sizeof(csr_data.no_nodes), 1, pdata);
-    bytes = fread(&no_edges, sizeof(csr_data.no_edges), 1, pdata);
-    bytes = fread(&no_danglings, sizeof(csr_data.no_danglings), 1, pdata);
+    pdata = fopen(lcsr_data_p, "rb");
+    bytes = fread(&no_nodes, sizeof(lcsr_data.no_nodes), 1, pdata);
+    bytes = fread(&no_edges, sizeof(lcsr_data.no_edges), 1, pdata);
+    bytes = fread(&no_danglings, sizeof(lcsr_data.no_danglings), 1, pdata);
     fclose(pdata);
     printf("no_nodes: %d\nno_edges: %d\nno_danglings: %d\n", no_nodes, no_edges, no_danglings);
     

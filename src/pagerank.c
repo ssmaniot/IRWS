@@ -84,25 +84,23 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
     
-    /* Check if input data has already been compressed, init folder name */
+    /* Init data folder name */
     strcpy(dir, "PR_");
     strncpy(dir + 3, argv[1] + 5, strlen(argv[1])-9);
     dir[strlen(argv[1])-6] = '/';
     dir[strlen(argv[1])-5] = '\0';
     
     /* Create CSR file names */
-    strcpy(row_ptr_p, dir);
-    strcat(row_ptr_p, "row_ptr.bin");
-    strcpy(col_ind_p, dir);
-    strcat(col_ind_p, "col_ind.bin");
-    strcpy(val_p, dir);
-    strcat(val_p, "val.bin");
-    strcpy(danglings_p, dir);
-    strcat(danglings_p, "danglings.bin");
-    strcpy(csr_data_p, dir);
-    strcat(csr_data_p, "csr_data.bin");
+    strcpy(row_ptr_p, dir);   strcat(row_ptr_p, "row_ptr.bin");
+    strcpy(col_ind_p, dir);   strcat(col_ind_p, "col_ind.bin");
+    strcpy(val_p, dir);       strcat(val_p, "val.bin");
+    strcpy(danglings_p, dir); strcat(danglings_p, "danglings.bin");
     
-    /* If data has NOT yet been compressed, then perform compression */
+    /* Create CSR metadata file */
+    strcpy(csr_data_p, dir);  strcat(csr_data_p, "csr_data.bin");
+    
+    /* Check if input data has already been compressed. 
+     * If data has NOT yet been compressed, then perform compression */
     if (stat(dir, &st) == -1)
     {
         printf("Input file data \"%s\" is not compressed, ready to perform compression...\n\n", argv[1]);
