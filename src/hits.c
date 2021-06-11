@@ -1,49 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <float.h>
-#include <math.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-
-#define TOL 1.e-10
-#define MAX_ITER 100
-#define FNAME 256
-#define DNAME 1024
-#define PATH 1024
-#define MMAP 2048
-#define DEBUG
+#define DEBUG 
 
 /* Data for compression */
 typedef struct 
 {
     int no_nodes;
     int no_edges;
-    int no_danglings;
 } CSR_data;
-
-/* Helper functions */
-int write_data(char path[], void *data, size_t nmemb, size_t size);
-void delete_folder(char dir[]);
-void * mmap_data(char path[], size_t nmemb, size_t size);
-void print_p(double *p, int n);
-void double_merge(int *from, int *to, int lo, int mid, int hi);
-void double_merge_sort(int *from, int *to, int lo, int hi);
-void sort_input_data(int *from, int *to, int n);
 
 int main(int argc, char *argv[])
 {
     /* Data to save/load CSR matrix */
     FILE *pdata;
     char dir[DNAME];
-    char row_ptr_p[PATH];
-    char col_ind_p[PATH];
-    char val_p[PATH];
-    char danglings_p[PATH];
+    char row_ptr_p[2][PATH];
+    char col_ind_p[2][PATH];
     char csr_data_p[PATH];
     CSR_data csr_data;
     struct stat st = {0};
@@ -65,8 +37,6 @@ int main(int argc, char *argv[])
     int *row_ptr;
     
     /* Pagerank computation data */
-    int *danglings;
-    int no_danglings;
     double danglings_dot_product;
     double *p, *p_new;
     double d;
@@ -74,7 +44,6 @@ int main(int argc, char *argv[])
     int iter;
     
     /* Extra data */
-    int *out_links;
     double sum;
     int err;
     
@@ -111,7 +80,7 @@ int main(int argc, char *argv[])
     
         if ((pf = fopen(argv[1], "r")) == NULL)
         {
-            fprintf(stderr, " [ERROR] Cannot open input file \"%s\"\n", argv[1]);
+            fprintf(stderr, " [ERROR] cannot open input file \"%s\"\n", argv[1]);
             exit(EXIT_FAILURE);
         }
         
@@ -236,7 +205,7 @@ int main(int argc, char *argv[])
         if (err)
         {
             delete_folder(dir);
-            fprintf(stderr, " [ERROR] Data could not be written in memory.\n");
+            fprintf(stderr, " [ERROR] data could not be written in memory.\n");
             exit(EXIT_FAILURE);
         }
     }
@@ -251,26 +220,26 @@ int main(int argc, char *argv[])
     printf("no_nodes: %d\nno_edges: %d\nno_danglings: %d\n", no_nodes, no_edges, no_danglings);
     
     /* mmapping the CSR matrix data from files */
-    i = 0;
-    err = (((row_ptr = (int *) mmap_data(row_ptr_p, sizeof(int), no_nodes + 1)) != NULL)     && ++i)
-       && (((col_ind = (int *) mmap_data(col_ind_p, sizeof(int), no_edges)) != NULL)         && ++i)
-       && (((val = (double *) mmap_data(val_p, sizeof(double), no_edges)) != NULL)           && ++i)
-       && (((danglings = (int *) mmap_data(danglings_p, sizeof(int), no_danglings)) != NULL) && ++i);
+    err = 0;
+    if ((row_ptr = (int *) mmap_data(row_ptr_p, sizeof(int), no_nodes + 1)) == NULL)          ++i; 
+    else if ((col_ind = (int *) mmap_data(col_ind_p, sizeof(int), no_edges)) == NULL)         ++i;
+    else if ((val = (double *) mmap_data(val_p, sizeof(double), no_edges)) == NULL)           ++i;
+    else if ((danglings = (int *) mmap_data(danglings_p, sizeof(int), no_danglings)) == NULL) ++i;
     
-    if (err == 0)
+    if (err > 0)
     {
-        fprintf(stderr, " [ERROR] Data could not be mmapped from memory.\n");
+        fprintf(stderr, " [ERROR] data could not be mmapped from memory.\n");
         fprintf(stderr, "         Data is corrupted, the folder will be destroyed.\n");
         delete_folder(dir);
-        do {
-            switch (i)
-            {
-                case 1: munmap(row_ptr, (no_nodes + 1) * sizeof(int)); break;
-                case 2: munmap(col_ind, no_edges * sizeof(int));       break;
-                case 3: munmap(val, no_edges * sizeof(double));        break;
-                case 4: munmap(col_ind, no_nodes * sizeof(int));       break;
-            }
-        } while (--i > 0);
+        /* Using Duff's device to manage errors */
+        switch (err)
+        {
+            case 1: do { munmap(row_ptr, (no_nodes + 1) * sizeof(int));
+            case 2:      munmap(col_ind, no_edges * sizeof(int));
+            case 3:      munmap(val, no_edges * sizeof(double));
+            case 4:      munmap(col_ind, no_nodes * sizeof(int));
+                       } while (--err > 0);
+        }
         exit(EXIT_FAILURE);
     }
     
@@ -377,140 +346,5 @@ int main(int argc, char *argv[])
     /* Vectors of probability */
     free(p); free(p_new);
     
-    return EXIT_SUCCESS;
-}
-
-/* Helper functions */
-
-int write_data(char path[], void *data, size_t nmemb, size_t size)
-{
-    FILE *pdata;
-    
-    if ((pdata = fopen(path, "wb")) == NULL)
-    {
-        fprintf(stderr, " [ERROR] Cannot create file \"%s\"\n", path);
-        return EXIT_FAILURE;
-    }
-    fwrite(data, size, nmemb, pdata);
-    fclose(pdata);
-    return EXIT_SUCCESS;
-}
-
-void delete_folder(char dir[])
-{
-    DIR *pf = opendir(dir);
-	struct dirent *next_file;
-	char fpath[PATH];
-	
-	while ((next_file = readdir(pf)) != NULL)
-	{
-		sprintf(fpath, "%s/%s", dir, next_file->d_name);
-		remove(fpath);
-	}
-	closedir(pf);
-	rmdir(dir);
-}
-
-void * mmap_data(char path[], size_t nmemb, size_t size)
-{
-    int fd;
-    char mmap_p[MMAP];
-    void * mp;
-    sprintf(mmap_p, "./%s", path);
-#ifdef DEBUG 
-    printf("mmapping \"%s\"\n", mmap_p);
-#endif 
-    fd = open(mmap_p, O_RDONLY);
-    mp = mmap(NULL, nmemb * size, PROT_READ, MAP_SHARED, fd, 0);
-    if (mp == MAP_FAILED)
-        mp = NULL;
-    close(fd);
-    return mp;
-}
-
-void print_p(double *p, int n)
-{
-    int i;
-    printf("p: [ ");
-    for (i = 0; i < n; ++i)
-        printf("%.3f ", p[i]);
-    printf("]\n");
-}
-
-void double_merge(int *from, int *to, int lo, int mid, int hi)
-{
-    int *FL, *TL; 
-    int *FR, *TR;
-    int i, j;
-    int NL, NR;
-    
-    NL = mid - lo;
-    NR = hi - mid;
-    
-    FL = (int *) malloc(sizeof(int) * NL);
-    TL = (int *) malloc(sizeof(int) * NL);
-    FR = (int *) malloc(sizeof(int) * NR);
-    TR = (int *) malloc(sizeof(int) * NR);
-    
-    for (i = 0; i < NL; ++i)
-    {
-        FL[i] = from[lo+i];
-        TL[i] = to[lo+i];
-    }
-    
-    for (j = 0; j < NR; ++j)
-    {
-        FR[j] = from[mid+j];
-        TR[j] = to[mid+j];
-    }
-    
-    i = 0; j = 0;
-    while (i < NL && j < NR)
-    {
-        if (TL[i] < TR[j] || (TL[i] == TR[j] && FL[i] <= FR[j]))
-        {
-            from[lo+i+j] = FL[i];
-            to[lo+i+j] = TL[i];
-            ++i;
-        }
-        else 
-        {
-            from[lo+i+j] = FR[j];
-            to[lo+i+j] = TR[j];
-            ++j;
-        }
-    }
-    
-    while (i < NL)
-    {
-        from[lo+i+j] = FL[i];
-        to[lo+i+j] = TL[i];
-        ++i;
-    }
-    
-    while (j < NR)
-    {
-        from[lo+i+j] = FR[j];
-        to[lo+i+j] = TR[j];
-        ++j;
-    }
-    
-    free(FL); free(TL);
-    free(FR); free(TR);
-}
-
-void double_merge_sort(int *from, int *to, int lo, int hi)
-{
-    if (hi - lo > 1)
-    {
-        int mid = (lo + hi) / 2;
-        double_merge_sort(from, to, lo, mid);
-        double_merge_sort(from, to, mid, hi);
-        double_merge(from, to, lo, mid, hi);
-    }
-}
-
-void sort_input_data(int *from, int *to, int n)
-{
-    double_merge_sort(from, to, 0, n);
+    exit(EXIT_SUCCESS);
 }

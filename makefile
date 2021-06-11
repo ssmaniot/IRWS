@@ -1,6 +1,6 @@
-CC = gcc 
-CFLAGS = -std=gnu89 -Wall -pedantic -O3
-LIBS = -lm
+CC := gcc 
+CFLAGS := -std=gnu89 -Wall -pedantic -O3
+LIBS := -lm
 
 pagerank: pagerank.o
 	$(CC) -o pagerank pagerank.o $(CFLAGS) $(LIBS)
