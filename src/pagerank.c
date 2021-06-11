@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     char danglings_p[PATH];
     char csr_data_p[PATH];
     CSR_data csr_data;
-	struct stat st = {0};
+    struct stat st = {0};
     
     /* Reading data from input file */
     FILE *pf;
