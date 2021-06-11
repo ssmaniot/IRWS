@@ -37,14 +37,14 @@ void sort_input_data(int *from, int *to, int n);
 
 int main(int argc, char *argv[])
 {
-    /* Data to save/load CSR matrix */
+    /* Data to save/load LCSR matrix */
     FILE *pdata;
     char dir[DNAME];
-    /*   Matrix L          Matrix L^T         */
-    char row_ptr_p[PATH],   row_ptr_tp[PATH];
-    char col_ind_p[PATH],   col_ind_tp[PATH];
-    char val_p[PATH],       val_tp[PATH];
-    char danglings_p[PATH], danglings_tp[PATH];
+    /*   Matrix L            Matrix L^T         */
+    char row_ptr_p[PATH],    row_ptr_tp[PATH];
+    char col_ind_p[PATH],    col_ind_tp[PATH];
+    char val_p[PATH],        val_tp[PATH];
+    char danglings_p[PATH],  danglings_tp[PATH];
     char lcsr_data_p[PATH];
     LCSR_data lcsr_data;
     struct stat st = {0};
@@ -60,12 +60,12 @@ int main(int argc, char *argv[])
     int f, t;
     int i, j;
     
-    /* CSR matrix representation */
+    /* LCSR matrix representation */
     double *val;
-    int *col_ind;
-    int *row_ptr;
+    int *col_ind, *col_ind_t;
+    int *row_ptr, *row_ptr_t;
     
-    /* Pagerank computation data */
+    /* HITS computation data */
     int *danglings;
     int no_danglings;
     double danglings_dot_product;
@@ -91,19 +91,18 @@ int main(int argc, char *argv[])
     dir[strlen(argv[1])-4] = '/';
     dir[strlen(argv[1])-3] = '\0';
     printf("%s\n", dir);
-    exit(EXIT_SUCCESS);
     
     /* Create LCSR file names */
-    strcpy(row_ptr_p, dir);   strcat(row_ptr_p, "row_ptr.bin");
-    strcpy(col_ind_p, dir);   strcat(col_ind_p, "col_ind.bin");
-    strcpy(val_p, dir);       strcat(val_p, "val.bin");
-    strcpy(danglings_p, dir); strcat(danglings_p, "danglings.bin");
+    strcpy(row_ptr_p,   dir); strcat(row_ptr_p,   "row_ptr.bin");
+    strcpy(col_ind_p,   dir); strcat(col_ind_p,   "col_ind.bin");
+    /*strcpy(val_p,       dir); strcat(val_p,       "val.bin");*/
+    /*strcpy(danglings_p, dir); strcat(danglings_p, "danglings.bin");*/
     
     /* Create transposed LCSR file names */
-    strcpy(row_ptr_tp, dir);   strcat(row_ptr_tp, "row_ptr_t.bin");
-    strcpy(col_ind_tp, dir);   strcat(col_ind_tp, "col_ind_t.bin");
-    strcpy(val_tp, dir);       strcat(val_tp, "val_t.bin");
-    strcpy(danglings_tp, dir); strcat(danglings_tp, "danglings_t.bin");
+    strcpy(row_ptr_tp,   dir); strcat(row_ptr_tp,   "row_ptr_t.bin");
+    strcpy(col_ind_tp,   dir); strcat(col_ind_tp,   "col_ind_t.bin");
+    /*strcpy(val_tp,       dir); strcat(val_tp,       "val_t.bin");*/
+    /*strcpy(danglings_tp, dir); strcat(danglings_tp, "danglings_t.bin");*/
     
     /* Create LCSR metadata file */
     strcpy(lcsr_data_p,  dir); strcat(lcsr_data_p,  "lcsr_data.bin");
@@ -151,25 +150,7 @@ int main(int argc, char *argv[])
         fclose(pf);
         free(s);
         
-        /* Keeping track of danglings data */
-        no_danglings = 0;
-        for (i = 0; i < no_nodes; ++i)
-            if (out_links[i] == 0)
-                ++no_danglings;
-        danglings = (int *) malloc(sizeof(int) * no_danglings);
-        j = 0;
-        for (i = 0; i < no_nodes; ++i)
-            if (out_links[i] == 0)
-                danglings[j++] = i;
-        
-        lcsr_data.no_danglings = no_danglings;
-
-        printf("Sorting edges...\n");
-        sort_input_data(from, to, no_edges);
-        printf("Done.\n\n");
-        
-        /* csr matrix initialization */
-        val = (double *) malloc(sizeof(double) * no_edges);
+        /* LCSR matrix initialization */
         col_ind = (int *) malloc(sizeof(int) * no_edges);
         row_ptr = (int *) malloc(sizeof(int) * (no_nodes + 1));
         ri = 0;
@@ -185,21 +166,16 @@ int main(int argc, char *argv[])
             {
                 for (i = ri + 1; i <= t; ++i)
                     row_ptr[i] = ci;
-                ri = t;
+                ri = f;
             }
-            val[ci] = 1. / (double) out_links[f];
-            col_ind[ci] = f;
+            col_ind[ci] = t;
         }
         while (ri < no_nodes)
             row_ptr[++ri] = ci;
 
 #ifdef DEBUG 
-        printf("CSR Transposed matrix\n");
+        printf("CSR matrix\n");
         printf("---------------------\n");
-        printf("val:     [ ");
-        for (i = 0; i < no_edges; ++i)
-            printf("%.3f ", val[i]);
-        printf("]\n");
         
         printf("col_ind: [ ");
         for (i = 0; i < no_edges; ++i)
@@ -210,33 +186,70 @@ int main(int argc, char *argv[])
         for (i = 0; i < no_nodes+1; ++i)
             printf("%d ", row_ptr[i]);
         printf("]\n\n");
-        printf("danglings: [ ");
-        for (j = 0; j < no_danglings; ++j)
+#endif 
+
+        printf("Sorting edges for transposed matrix...\n");
+        sort_input_data(from, to, no_edges);
+        printf("Done.\n\n");
+        
+        /* Transposed LCSR matrix initialization */
+        col_ind_t = (int *) malloc(sizeof(int) * no_edges);
+        row_ptr_t = (int *) malloc(sizeof(int) * (no_nodes + 1));
+        ri = 0;
+        row_ptr_t[ri] = 0;
+        ci = 0;
+        
+        /* Writing data in CSR matrix */
+        for (ci = 0; ci < no_edges; ++ci)
         {
-            printf("%d", danglings[j]);
-            if (j < no_danglings - 1)
-                printf(", ");
+            f = from[ci];
+            t = to[ci];
+            if (t > ri)
+            {
+                for (i = ri + 1; i <= t; ++i)
+                    row_ptr_t[i] = ci;
+                ri = t;
+            }
+            col_ind_t[ci] = f;
         }
-        printf(" ]\n");
-        printf("Number of danglings nodes: %d\n\n", no_danglings);
+        while (ri < no_nodes)
+            row_ptr_t[++ri] = ci;
+
+#ifdef DEBUG 
+        printf("Transposed CSR matrix\n");
+        printf("---------------------\n");
+        
+        printf("col_ind_t: [ ");
+        for (i = 0; i < no_edges; ++i)
+            printf("%d ", col_ind_t[i]);
+        printf("]\n");
+        
+        printf("row_ptr_t: [ ");
+        for (i = 0; i < no_nodes+1; ++i)
+            printf("%d ", row_ptr_t[i]);
+        printf("]\n\n");
 #endif 
     
         /* Writing data back to memory */
         err = (write_data(row_ptr_p, (void *) row_ptr, sizeof(int), no_nodes + 1) == EXIT_FAILURE) 
            || (write_data(col_ind_p, (void *) col_ind, sizeof(int), no_edges) == EXIT_FAILURE)
-           || (write_data(val_p, (void *) val, sizeof(double), no_edges) == EXIT_FAILURE)
-           || (write_data(danglings_p, (void *) danglings, sizeof(int), no_danglings) == EXIT_FAILURE)
+           || (write_data(row_ptr_tp, (void *) row_ptr_t, sizeof(int), no_nodes + 1) == EXIT_FAILURE) 
+           || (write_data(col_ind_tp, (void *) col_ind_t, sizeof(int), no_edges) == EXIT_FAILURE)
+         /*|| (write_data(val_p, (void *) val, sizeof(double), no_edges) == EXIT_FAILURE)
+           || (write_data(danglings_p, (void *) danglings, sizeof(int), no_danglings) == EXIT_FAILURE)*/
            || (write_data(lcsr_data_p, (void *) &lcsr_data, sizeof(LCSR_data), 1) == EXIT_FAILURE);
         
         /* Input data */
         free(from); free(to);
         from = NULL; to = NULL;
         /* Danglings data */
-        free(out_links); free(danglings);
-        out_links = NULL; danglings = NULL;
+        /*free(out_links); free(danglings);*/
+        /*out_links = NULL; danglings = NULL;*/
         /* CSR data structure */
-        free(val); free(col_ind); free(row_ptr);
-        val = NULL; col_ind = NULL; row_ptr = NULL;
+        /*free(val);*/ free(col_ind); free(row_ptr);
+        free(col_ind_t); free(row_ptr_t);
+        /*val = NULL;*/ col_ind = NULL; row_ptr = NULL;
+        col_ind_t = NULL; row_ptr_t = NULL;
         
         /* Manage error from writing data to memory */
         if (err)
@@ -247,21 +260,23 @@ int main(int argc, char *argv[])
         }
     }
     
-    /* Reading CSR matrix metadata info from file */
-    printf("Reading csr matrix data...\n");
+    /* Reading LCSR matrix metadata info from file */
+    printf("Reading CLSR matrix data...\n");
     pdata = fopen(lcsr_data_p, "rb");
     bytes = fread(&no_nodes, sizeof(lcsr_data.no_nodes), 1, pdata);
     bytes = fread(&no_edges, sizeof(lcsr_data.no_edges), 1, pdata);
-    bytes = fread(&no_danglings, sizeof(lcsr_data.no_danglings), 1, pdata);
+    /*bytes = fread(&no_danglings, sizeof(lcsr_data.no_danglings), 1, pdata);*/
     fclose(pdata);
-    printf("no_nodes: %d\nno_edges: %d\nno_danglings: %d\n", no_nodes, no_edges, no_danglings);
+    printf("no_nodes: %d\nno_edges: %d\n\n", no_nodes, no_edges, no_danglings);
     
     /* mmapping the CSR matrix data from files */
     err = 0;
-    if ((row_ptr = (int *) mmap_data(row_ptr_p, sizeof(int), no_nodes + 1)) == NULL)          ++i; 
-    else if ((col_ind = (int *) mmap_data(col_ind_p, sizeof(int), no_edges)) == NULL)         ++i;
-    else if ((val = (double *) mmap_data(val_p, sizeof(double), no_edges)) == NULL)           ++i;
-    else if ((danglings = (int *) mmap_data(danglings_p, sizeof(int), no_danglings)) == NULL) ++i;
+    if      ((row_ptr   = (int *) mmap_data(row_ptr_p,  sizeof(int), no_nodes + 1)) == NULL) ++i; 
+    else if ((row_ptr_t = (int *) mmap_data(row_ptr_tp, sizeof(int), no_nodes + 1)) == NULL) ++i; 
+    else if ((col_ind   = (int *) mmap_data(col_ind_p,  sizeof(int), no_edges)) == NULL)     ++i;
+    else if ((col_ind_t = (int *) mmap_data(col_ind_tp, sizeof(int), no_edges)) == NULL)     ++i;
+    /*else if ((val = (double *) mmap_data(val_p, sizeof(double), no_edges)) == NULL)           ++i;
+    else if ((danglings = (int *) mmap_data(danglings_p, sizeof(int), no_danglings)) == NULL) ++i;*/
     
     if (err > 0)
     {
@@ -271,10 +286,10 @@ int main(int argc, char *argv[])
         /* Using Duff's device to manage errors */
         switch (err)
         {
-            case 1: do { munmap(row_ptr, (no_nodes + 1) * sizeof(int));
-            case 2:      munmap(col_ind, no_edges * sizeof(int));
-            case 3:      munmap(val, no_edges * sizeof(double));
-            case 4:      munmap(col_ind, no_nodes * sizeof(int));
+            case 1: do { munmap(row_ptr,   (no_nodes + 1) * sizeof(int));
+            case 2:      munmap(row_ptr_t, (no_nodes + 1) * sizeof(int));
+            case 3:      munmap(col_ind,   no_edges * sizeof(int));
+            case 4:      munmap(col_ind_t, no_edges * sizeof(int));
                        } while (--err > 0);
         }
         exit(EXIT_FAILURE);
@@ -285,10 +300,6 @@ int main(int argc, char *argv[])
 #ifdef DEBUG 
         printf("CSR Transposed matrix\n");
         printf("---------------------\n");
-        printf("val:     [ ");
-        for (i = 0; i < no_edges; ++i)
-            printf("%.3f ", val[i]);
-        printf("]\n");
         
         printf("col_ind: [ ");
         for (i = 0; i < no_edges; ++i)
@@ -299,16 +310,28 @@ int main(int argc, char *argv[])
         for (i = 0; i < no_nodes+1; ++i)
             printf("%d ", row_ptr[i]);
         printf("]\n\n");
-        printf("danglings: [ ");
-        for (j = 0; j < no_danglings; ++j)
-        {
-            printf("%d", danglings[j]);
-            if (j < no_danglings - 1)
-                printf(", ");
-        }
-        printf(" ]\n");
-        printf("Number of danglings nodes: %d\n\n", no_danglings);
+        
+        printf("Transposed CSR matrix\n");
+        printf("---------------------\n");
+        
+        printf("col_ind_t: [ ");
+        for (i = 0; i < no_edges; ++i)
+            printf("%d ", col_ind_t[i]);
+        printf("]\n");
+        
+        printf("row_ptr_t: [ ");
+        for (i = 0; i < no_nodes+1; ++i)
+            printf("%d ", row_ptr_t[i]);
+        printf("]\n\n");
 #endif 
+    
+    /* un-mmapping data */
+    munmap(row_ptr,   (no_nodes + 1) * sizeof(int));
+    munmap(row_ptr_t, (no_nodes + 1) * sizeof(int));
+    munmap(col_ind,   no_edges * sizeof(int));
+    munmap(col_ind_t, no_edges * sizeof(int));
+    
+    exit(EXIT_SUCCESS);
     
     /* Setting data up for PageRank computation */
     d = 0.85;
