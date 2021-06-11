@@ -12,6 +12,7 @@
 
 #define TOL 1.e-10
 #define MAX_ITER 100
+#define MOD_ITER 1
 #define FNAME 256
 #define DNAME 1024
 #define PATH 1024
@@ -66,6 +67,11 @@ int main(int argc, char *argv[])
     int *row_ptr, *row_ptr_t;
     
     /* HITS computation data */
+    double *a, *a_new;
+    double *h, *h_new;
+    double a_dist, h_dist;
+    
+    /* PageRank computation data */
     int *danglings;
     int no_danglings;
     double danglings_dot_product;
@@ -267,7 +273,7 @@ int main(int argc, char *argv[])
     bytes = fread(&no_edges, sizeof(lcsr_data.no_edges), 1, pdata);
     /*bytes = fread(&no_danglings, sizeof(lcsr_data.no_danglings), 1, pdata);*/
     fclose(pdata);
-    printf("no_nodes: %d\nno_edges: %d\n\n", no_nodes, no_edges, no_danglings);
+    printf("no_nodes: %d\nno_edges: %d\n\n", no_nodes, no_edges);
     
     /* mmapping the CSR matrix data from files */
     err = 0;
@@ -324,6 +330,96 @@ int main(int argc, char *argv[])
             printf("%d ", row_ptr_t[i]);
         printf("]\n\n");
 #endif 
+    /* HITS computation data 
+    double *a, *a_new;
+    double *h, *h_new;
+    double a_dist, h_dist;  */
+    
+    /* Setting data up for PageRank computation */
+    a = (double *) malloc(sizeof(double) * no_nodes);
+    h = (double *) malloc(sizeof(double) * no_nodes);
+    for (i = 0; i < no_nodes; ++i)
+    {
+        a[i] = 1.;
+        h[i] = 1.;
+    }
+    a_new = (double *) malloc(sizeof(double) * no_nodes);
+    h_new = (double *) malloc(sizeof(double) * no_nodes);
+    a_dist = DBL_MAX;
+    h_dist = DBL_MAX;
+    iter = 0;
+    
+    /* Computing HITS */
+    printf("Computing PageRank...\n");
+    while ((a_dist > TOL || h_dist > TOL) && iter < MAX_ITER)
+    {
+#ifdef DEBUG 
+        if (iter % MOD_ITER == 0)
+        {
+#endif 
+            printf("\riter %d", iter);
+#ifdef DEBUG 
+            printf("\n");
+            printf("a: ");
+            print_p(a, no_nodes); 
+            printf("h: ");
+            print_p(h, no_nodes); 
+        }
+#endif 
+        
+        /* a_new = Lt @ h, h_new = L @ a */
+        for (ri = 0; ri < no_nodes; ++ri)
+        {
+            a_new[ri] = 0.;
+            for (ci = row_ptr_t[ri]; ci < row_ptr_t[ri+1]; ++ci)
+                a_new[ri] += h[col_ind_t[ci]];
+            h_new[ri] = .0;
+            for (ci = row_ptr[ri]; ci < row_ptr[ri+1]; ++ci)
+                h_new[ri] += a[col_ind[ci]];
+        }
+        
+        /* Normalization step */
+        sum = 0.;
+        for (i = 0; i < no_nodes; ++i) sum += a_new[i];
+        for (i = 0; i < no_nodes; ++i) a_new[i] /= sum;
+        sum = 0.;
+        for (i = 0; i < no_nodes; ++i) sum += h_new[i];
+        for (i = 0; i < no_nodes; ++i) h_new[i] /= sum;
+        
+        /* Computing distance between current and old a/h */
+        a_dist = 0.;
+        h_dist = 0.;
+        for (i = 0; i < no_nodes; ++i)
+        {
+            a_dist += (a[i] - a_new[i]) * (a[i] - a_new[i]);
+            h_dist += (h[i] - h_new[i]) * (h[i] - h_new[i]);
+        }
+        a_dist = sqrt(a_dist);
+        h_dist = sqrt(h_dist);
+        
+        /* Copy new values in a/h */
+        for (i = 0; i < no_nodes; ++i)
+        {
+            a[i] = a_new[i];
+            h[i] = h_new[i];
+        }
+        
+        ++iter;
+    }
+    printf("\riter %d\n", iter);
+#ifdef DEBUG 
+    printf("a: ");
+    print_p(a, no_nodes); 
+    printf("h: ");
+    print_p(h, no_nodes); 
+#endif 
+    printf("Done.\n\n");
+    
+    printf("Proof of correctness:\n");
+    sum = 0.; for (i = 0; i < no_nodes; ++i) sum += a[i];
+    printf("sum(a) = %f\n", sum);
+    sum = 0.; for (i = 0; i < no_nodes; ++i) sum += h[i];
+    printf("sum(h) = %f\n", sum);
     
     /* un-mmapping data */
     munmap(row_ptr,   (no_nodes + 1) * sizeof(int));
@@ -331,80 +427,9 @@ int main(int argc, char *argv[])
     munmap(col_ind,   no_edges * sizeof(int));
     munmap(col_ind_t, no_edges * sizeof(int));
     
-    exit(EXIT_SUCCESS);
-    
-    /* Setting data up for PageRank computation */
-    d = 0.85;
-    p = (double *) malloc(sizeof(double) * no_nodes);
-    for (i = 0; i < no_nodes; ++i)
-        p[i] = 1. / (double) no_nodes;
-    p_new = (double *) malloc(sizeof(double) * no_nodes);
-    dist = DBL_MAX;
-    iter = 0;
-    
-    /* Computing PageRank */
-    printf("Computing PageRank...\n");
-    while (dist > TOL && iter < MAX_ITER)
-    {
-#ifdef DEBUG 
-        if (iter % 10 == 0)
-        {
-#endif 
-            printf("\riter %d", iter);
-#ifdef DEBUG 
-            printf("\n");
-            print_p(p, no_nodes); 
-        }
-#endif 
-        
-        /* DTp = DanglingsT @ p */
-        danglings_dot_product = 0.;
-        for (j = 0; j < no_danglings; ++j)
-            danglings_dot_product += p[danglings[j]];
-        danglings_dot_product /= (double) no_nodes;
-        
-        /* ATp = AT @ p + DTp */
-        for (ri = 0; ri < no_nodes; ++ri)
-        {
-            p_new[ri] = danglings_dot_product;
-            for (ci = row_ptr[ri]; ci < row_ptr[ri+1]; ++ci)
-                p_new[ri] += p[col_ind[ci]] * val[ci];
-        }
-        
-        /* d*AT @ p + (1-d)eeT @ p */
-        for (i = 0; i < no_nodes; ++i)
-            p_new[i] = d * p_new[i] + (1. - d) / (double) no_nodes;
-        
-        dist = 0.;
-        for (i = 0; i < no_nodes; ++i)
-            dist += (p[i] - p_new[i]) * (p[i] - p_new[i]);
-        dist = sqrt(dist);
-        
-        for (i = 0; i < no_nodes; ++i)
-            p[i] = p_new[i];
-        
-        ++iter;
-    }
-    printf("\riter %d\n", iter);
-#ifdef DEBUG 
-    print_p(p, no_nodes);
-#endif 
-    printf("Done.\n\n");
-    
-    sum = 0.;
-    for (i = 0; i < no_nodes; ++i)
-        sum += p[i];
-    printf("Proof of correctness:\n");
-    printf("sum(p) = %f\n\n", sum);
-    
-    /* un-mmapping data */
-    munmap(row_ptr, (no_nodes + 1) * sizeof(int));
-    munmap(col_ind, no_edges * sizeof(int));
-    munmap(val, no_edges * sizeof(double));
-    munmap(col_ind, no_nodes * sizeof(int));
-    
     /* Vectors of probability */
-    free(p); free(p_new);
+    free(a); free(a_new);
+    free(h); free(h_new);
     
     exit(EXIT_SUCCESS);
 }
@@ -460,7 +485,7 @@ void * mmap_data(char path[], size_t nmemb, size_t size)
 void print_p(double *p, int n)
 {
     int i;
-    printf("p: [ ");
+    printf("[ ");
     for (i = 0; i < n; ++i)
         printf("%.3f ", p[i]);
     printf("]\n");

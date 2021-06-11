@@ -12,6 +12,7 @@
 
 #define TOL 1.e-10
 #define MAX_ITER 100
+#define MOD_ITER 10
 #define FNAME 256
 #define DNAME 1024
 #define PATH 1024
@@ -315,7 +316,7 @@ int main(int argc, char *argv[])
     while (dist > TOL && iter < MAX_ITER)
     {
 #ifdef DEBUG 
-        if (iter % 10 == 0)
+        if (iter % MOD_ITER == 0)
         {
 #endif 
             printf("\riter %d", iter);
