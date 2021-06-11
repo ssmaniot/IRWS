@@ -4,12 +4,9 @@ pagerank
 # Ignore all .o:
 *.o
 
-# Ignore HITS implementation (for now)
-src/hits.c
-
 # Ignore all folders:
 */
 
 # Except for the following ones:
-!src/
+!src/pagerank.c
 !data/
