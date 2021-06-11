@@ -84,12 +84,11 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
     
-    /* Check if input data has already been compressed */
+    /* Check if input data has already been compressed, init folder name */
     strcpy(dir, "PR_");
     strncpy(dir + 3, argv[1] + 5, strlen(argv[1])-9);
     dir[strlen(argv[1])-6] = '/';
     dir[strlen(argv[1])-5] = '\0';
-    printf("%s\n", dir);
     
     /* Create CSR file names */
     strcpy(row_ptr_p, dir);
@@ -415,16 +414,41 @@ void * mmap_data(char path[], size_t nmemb, size_t size)
 {
     int fd;
     char mmap_p[MMAP];
-    void * mp;
+    void * mp = NULL;
+    struct stat st;
+    
     sprintf(mmap_p, "./%s", path);
 #ifdef DEBUG 
-    printf("mmapping \"%s\"\n", mmap_p);
+    printf("mmapping \"%s\"... ", mmap_p);
 #endif 
-    fd = open(mmap_p, O_RDONLY);
-    mp = mmap(NULL, nmemb * size, PROT_READ, MAP_SHARED, fd, 0);
-    if (mp == MAP_FAILED)
-        mp = NULL;
-    close(fd);
+    stat(path, &st);
+    if (access(path, F_OK) != 0)
+    {
+#ifdef DEBUG
+        printf("file does not exist.\n");
+#endif 
+    }
+    else if (st.st_size  != nmemb * size)
+    {
+        printf("unexpected file size.\n");
+    }
+    else 
+    {
+        fd = open(mmap_p, O_RDONLY);
+        mp = mmap(NULL, nmemb * size, PROT_READ, MAP_SHARED, fd, 0);
+        if (mp == MAP_FAILED)
+#ifdef DEBUG 
+        {
+            printf("failed.\n");
+#endif
+            mp = NULL;
+#ifdef DEBUG
+        }
+        else 
+            printf("success.\n");
+#endif
+        close(fd);
+    }
     return mp;
 }
 
