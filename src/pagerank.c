@@ -11,7 +11,7 @@
 #include <fcntl.h>
 
 #define TOL 1.e-10
-#define MAX_ITER 100
+#define MAX_ITER 200
 #define MOD_ITER 10
 #define FNAME 256
 #define DNAME 1024
@@ -261,6 +261,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, " [ERROR] Data could not be mmapped from memory.\n");
         fprintf(stderr, "         Data is corrupted, the folder will be destroyed.\n");
         delete_folder(dir);
+        /* Un-mmapping mmapped files */
         do {
             switch (i)
             {

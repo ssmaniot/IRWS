@@ -11,13 +11,13 @@
 #include <fcntl.h>
 
 #define TOL 1.e-10
-#define MAX_ITER 3
-#define MOD_ITER 1
+#define MAX_ITER 200
+#define MOD_ITER 10
 #define FNAME 256
 #define DNAME 1024
 #define PATH 1024
 #define MMAP 2048
-#define DEBUG
+/*#define DEBUG*/
 
 /* Data for compression */
 typedef struct 
@@ -45,8 +45,6 @@ int main(int argc, char *argv[])
     /*   Matrix L            Matrix L^T         */
     char row_ptr_p[PATH],    row_ptr_tp[PATH];
     char col_ind_p[PATH],    col_ind_tp[PATH];
-    char val_p[PATH],        val_tp[PATH];
-    char danglings_p[PATH],  danglings_tp[PATH];
     char lcsr_data_p[PATH];
     LCSR_data lcsr_data;
     struct stat st = {0};
@@ -60,10 +58,9 @@ int main(int argc, char *argv[])
     int ri, ci;
     int *from, *to;
     int f, t;
-    int i, j;
+    int i;
     
     /* LCSR matrix representation */
-    double *val;
     int *col_ind, *col_ind_t;
     int *row_ptr, *row_ptr_t;
     
@@ -71,18 +68,9 @@ int main(int argc, char *argv[])
     double *a, *a_new;
     double *h, *h_new;
     double a_dist, h_dist;
-    
-    /* PageRank computation data */
-    int *danglings;
-    int no_danglings;
-    double danglings_dot_product;
-    double *p, *p_new;
-    double d;
-    double dist;
     int iter;
     
     /* Extra data */
-    int *out_links;
     double sum;
     int err;
     
@@ -102,14 +90,10 @@ int main(int argc, char *argv[])
     /* Create LCSR file names */
     strcpy(row_ptr_p,   dir); strcat(row_ptr_p,   "row_ptr.bin");
     strcpy(col_ind_p,   dir); strcat(col_ind_p,   "col_ind.bin");
-    /*strcpy(val_p,       dir); strcat(val_p,       "val.bin");*/
-    /*strcpy(danglings_p, dir); strcat(danglings_p, "danglings.bin");*/
     
     /* Create transposed LCSR file names */
     strcpy(row_ptr_tp,   dir); strcat(row_ptr_tp,   "row_ptr_t.bin");
     strcpy(col_ind_tp,   dir); strcat(col_ind_tp,   "col_ind_t.bin");
-    /*strcpy(val_tp,       dir); strcat(val_tp,       "val_t.bin");*/
-    /*strcpy(danglings_tp, dir); strcat(danglings_tp, "danglings_t.bin");*/
     
     /* Create LCSR metadata file */
     strcpy(lcsr_data_p,  dir); strcat(lcsr_data_p,  "lcsr_data.bin");
@@ -143,11 +127,9 @@ int main(int argc, char *argv[])
         i = 0;
         from = (int *) malloc(sizeof(int) * no_edges);
         to = (int *) malloc(sizeof(int) * no_edges);
-        out_links = (int *) calloc(no_nodes, sizeof(int));
         while ((bytes = getline(&s, &slen, pf)) != -1)
         {
             sscanf(s, "%d %d", from + i, to + i);
-            out_links[from[i]] += 1;         
             if (i % 10 == 0)
                 printf("\rEdge %d/%d", i, no_edges);
             ++i;
@@ -164,14 +146,14 @@ int main(int argc, char *argv[])
         row_ptr[ri] = 0;
         ci = 0;
         
-        /* Writing data in CSR matrix */
+        /* Writing data in LCSR matrix */
         for (ci = 0; ci < no_edges; ++ci)
         {
             f = from[ci];
             t = to[ci];
-            if (t > ri)
+            if (f > ri)
             {
-                for (i = ri + 1; i <= t; ++i)
+                for (i = ri + 1; i <= f; ++i)
                     row_ptr[i] = ci;
                 ri = f;
             }
@@ -181,7 +163,7 @@ int main(int argc, char *argv[])
             row_ptr[++ri] = ci;
 
 #ifdef DEBUG 
-        printf("CSR matrix\n");
+        printf("LCSR matrix\n");
         printf("---------------------\n");
         
         printf("col_ind: [ ");
@@ -206,7 +188,7 @@ int main(int argc, char *argv[])
         row_ptr_t[ri] = 0;
         ci = 0;
         
-        /* Writing data in CSR matrix */
+        /* Writing data in Transposed LCSR matrix */
         for (ci = 0; ci < no_edges; ++ci)
         {
             f = from[ci];
@@ -223,7 +205,7 @@ int main(int argc, char *argv[])
             row_ptr_t[++ri] = ci;
 
 #ifdef DEBUG 
-        printf("Transposed CSR matrix\n");
+        printf("Transposed LCSR matrix\n");
         printf("---------------------\n");
         
         printf("col_ind_t: [ ");
@@ -242,20 +224,15 @@ int main(int argc, char *argv[])
            || (write_data(col_ind_p, (void *) col_ind, sizeof(int), no_edges) == EXIT_FAILURE)
            || (write_data(row_ptr_tp, (void *) row_ptr_t, sizeof(int), no_nodes + 1) == EXIT_FAILURE) 
            || (write_data(col_ind_tp, (void *) col_ind_t, sizeof(int), no_edges) == EXIT_FAILURE)
-         /*|| (write_data(val_p, (void *) val, sizeof(double), no_edges) == EXIT_FAILURE)
-           || (write_data(danglings_p, (void *) danglings, sizeof(int), no_danglings) == EXIT_FAILURE)*/
            || (write_data(lcsr_data_p, (void *) &lcsr_data, sizeof(LCSR_data), 1) == EXIT_FAILURE);
         
         /* Input data */
         free(from); free(to);
         from = NULL; to = NULL;
-        /* Danglings data */
-        /*free(out_links); free(danglings);*/
-        /*out_links = NULL; danglings = NULL;*/
         /* CSR data structure */
-        /*free(val);*/ free(col_ind); free(row_ptr);
+        free(col_ind); free(row_ptr);
         free(col_ind_t); free(row_ptr_t);
-        /*val = NULL;*/ col_ind = NULL; row_ptr = NULL;
+        col_ind = NULL; row_ptr = NULL;
         col_ind_t = NULL; row_ptr_t = NULL;
         
         /* Manage error from writing data to memory */
@@ -272,7 +249,6 @@ int main(int argc, char *argv[])
     pdata = fopen(lcsr_data_p, "rb");
     bytes = fread(&no_nodes, sizeof(lcsr_data.no_nodes), 1, pdata);
     bytes = fread(&no_edges, sizeof(lcsr_data.no_edges), 1, pdata);
-    /*bytes = fread(&no_danglings, sizeof(lcsr_data.no_danglings), 1, pdata);*/
     fclose(pdata);
     printf("no_nodes: %d\nno_edges: %d\n\n", no_nodes, no_edges);
     
@@ -282,15 +258,13 @@ int main(int argc, char *argv[])
     else if ((row_ptr_t = (int *) mmap_data(row_ptr_tp, sizeof(int), no_nodes + 1)) == NULL) ++i; 
     else if ((col_ind   = (int *) mmap_data(col_ind_p,  sizeof(int), no_edges)) == NULL)     ++i;
     else if ((col_ind_t = (int *) mmap_data(col_ind_tp, sizeof(int), no_edges)) == NULL)     ++i;
-    /*else if ((val = (double *) mmap_data(val_p, sizeof(double), no_edges)) == NULL)           ++i;
-    else if ((danglings = (int *) mmap_data(danglings_p, sizeof(int), no_danglings)) == NULL) ++i;*/
     
     if (err > 0)
     {
         fprintf(stderr, " [ERROR] data could not be mmapped from memory.\n");
         fprintf(stderr, "         Data is corrupted, the folder will be destroyed.\n");
         delete_folder(dir);
-        /* Using Duff's device to manage errors */
+        /* Un-mmaping mmapped files */
         switch (err)
         {
             case 1: do { munmap(row_ptr,   (no_nodes + 1) * sizeof(int));
@@ -305,7 +279,7 @@ int main(int argc, char *argv[])
     printf("Done.\n\n");
 
 #ifdef DEBUG 
-        printf("CSR Transposed matrix\n");
+        printf("LCSR matrix\n");
         printf("---------------------\n");
         
         printf("col_ind: [ ");
@@ -318,7 +292,7 @@ int main(int argc, char *argv[])
             printf("%d ", row_ptr[i]);
         printf("]\n\n");
         
-        printf("Transposed CSR matrix\n");
+        printf("Transposed LCSR matrix\n");
         printf("---------------------\n");
         
         printf("col_ind_t: [ ");
@@ -331,12 +305,8 @@ int main(int argc, char *argv[])
             printf("%d ", row_ptr_t[i]);
         printf("]\n\n");
 #endif 
-    /* HITS computation data 
-    double *a, *a_new;
-    double *h, *h_new;
-    double a_dist, h_dist;  */
     
-    /* Setting data up for PageRank computation */
+    /* Setting data up for HITS computation */
     a = (double *) malloc(sizeof(double) * no_nodes);
     h = (double *) malloc(sizeof(double) * no_nodes);
     for (i = 0; i < no_nodes; ++i)
@@ -351,13 +321,11 @@ int main(int argc, char *argv[])
     iter = 0;
     
     /* Computing HITS */
-    printf("Computing PageRank...\n");
+    printf("Computing HITS...\n");
     while ((a_dist > TOL || h_dist > TOL) && iter < MAX_ITER)
     {
-#ifdef DEBUG 
         if (iter % MOD_ITER == 0)
         {
-#endif 
             printf("\riter %d", iter);
 #ifdef DEBUG 
             printf("\n");
@@ -365,8 +333,8 @@ int main(int argc, char *argv[])
             print_vec_f(a, no_nodes); 
             printf("h: ");
             print_vec_f(h, no_nodes); 
-        }
 #endif 
+        }
         
         /* a_new = Lt @ h, h_new = L @ a */
         for (ri = 0; ri < no_nodes; ++ri)
