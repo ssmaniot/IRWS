@@ -11,7 +11,7 @@
 #include <fcntl.h>
 
 #define TOL 1.e-10
-#define MAX_ITER 100
+#define MAX_ITER 3
 #define MOD_ITER 1
 #define FNAME 256
 #define DNAME 1024
@@ -31,7 +31,8 @@ typedef struct
 int write_data(char path[], void *data, size_t nmemb, size_t size);
 void delete_folder(char dir[]);
 void * mmap_data(char path[], size_t nmemb, size_t size);
-void print_p(double *p, int n);
+void print_vec_f(double *v, int n);
+void print_vec_d(int *v, int n);
 void double_merge(int *from, int *to, int lo, int mid, int hi);
 void double_merge_sort(int *from, int *to, int lo, int hi);
 void sort_input_data(int *from, int *to, int n);
@@ -361,9 +362,9 @@ int main(int argc, char *argv[])
 #ifdef DEBUG 
             printf("\n");
             printf("a: ");
-            print_p(a, no_nodes); 
+            print_vec_f(a, no_nodes); 
             printf("h: ");
-            print_p(h, no_nodes); 
+            print_vec_f(h, no_nodes); 
         }
 #endif 
         
@@ -409,9 +410,9 @@ int main(int argc, char *argv[])
     printf("\riter %d\n", iter);
 #ifdef DEBUG 
     printf("a: ");
-    print_p(a, no_nodes); 
+    print_vec_f(a, no_nodes); 
     printf("h: ");
-    print_p(h, no_nodes); 
+    print_vec_f(h, no_nodes); 
 #endif 
     printf("Done.\n\n");
     
@@ -482,12 +483,21 @@ void * mmap_data(char path[], size_t nmemb, size_t size)
     return mp;
 }
 
-void print_p(double *p, int n)
+void print_vec_f(double *v, int n)
 {
     int i;
     printf("[ ");
     for (i = 0; i < n; ++i)
-        printf("%.3f ", p[i]);
+        printf("%.3f ", v[i]);
+    printf("]\n");
+}
+
+void print_vec_d(int *v, int n)
+{
+    int i;
+    printf("[ ");
+    for (i = 0; i < n; ++i)
+        printf("%d ", v[i]);
     printf("]\n");
 }
 
