@@ -26,8 +26,6 @@ typedef struct
     int no_danglings;
 } CSR_data;
 
-struct stat st = {0};
-
 /* Helper functions */
 int write_data(char path[], void *data, size_t nmemb, size_t size);
 void delete_folder(char dir[]);
@@ -48,6 +46,7 @@ int main(int argc, char *argv[])
     char danglings_p[PATH];
     char csr_data_p[PATH];
     CSR_data csr_data;
+	struct stat st = {0};
     
     /* Reading data from input file */
     FILE *pf;
