@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     char col_ind_p[PATH],   col_ind_tp[PATH];
     char val_p[PATH],       val_tp[PATH];
     char danglings_p[PATH], danglings_tp[PATH];
-    char lcsr_data_p[PATH], lcsr_data_tp[PATH];
+    char lcsr_data_p[PATH];
     LCSR_data lcsr_data;
     struct stat st = {0};
     
@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
     strcpy(danglings_tp, dir); strcat(danglings_tp, "danglings_t.bin");
     
     /* Create LCSR metadata file */
-    strcpy(lcsr_data_p, dir); strcat(lcsr_data_p, "lcsr_data.bin");
+    strcpy(lcsr_data_p,  dir); strcat(lcsr_data_p,  "lcsr_data.bin");
     
     /* Check if input data has already been compressed. 
      * If data has NOT yet been compressed, then perform compression */
