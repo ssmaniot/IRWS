@@ -8,6 +8,5 @@ pagerank
 */
 
 # Except for the following ones (with exceptions):
-src/*
-!src/pagerank.c
+!src/
 !data/
