@@ -247,8 +247,8 @@ int main(int argc, char *argv[])
         }
     }
     
-    printf("Reading csr matrix data...\n");
     /* Reading CSR matrix metadata info from file */
+    printf("Reading csr matrix data...\n");
     pdata = fopen(lcsr_data_p, "rb");
     bytes = fread(&no_nodes, sizeof(lcsr_data.no_nodes), 1, pdata);
     bytes = fread(&no_edges, sizeof(lcsr_data.no_edges), 1, pdata);
