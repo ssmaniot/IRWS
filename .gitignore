@@ -7,6 +7,6 @@ pagerank
 # Ignore all folders:
 */
 
-# Except for the following ones (with exceptions):
+# Except for the following ones:
 !src/
 !data/
