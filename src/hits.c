@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <time.h>
 
 #define TOL 1.e-10
 #define MAX_ITER 200
@@ -69,6 +70,10 @@ int main(int argc, char *argv[])
     double *h, *h_new;
     double a_dist, h_dist;
     int iter;
+    
+    /* Time elapsed data */
+    clock_t begin, end;
+    double elapsed_time;
     
     /* Extra data */
     double sum;
@@ -322,6 +327,7 @@ int main(int argc, char *argv[])
     
     /* Computing HITS */
     printf("Computing HITS...\n");
+    begin = clock();
     while ((a_dist > TOL || h_dist > TOL) && iter < MAX_ITER)
     {
         if (iter % MOD_ITER == 0)
@@ -375,6 +381,7 @@ int main(int argc, char *argv[])
         
         ++iter;
     }
+    end = clock();
     printf("\riter %d\n", iter);
 #ifdef DEBUG 
     printf("a: ");
@@ -388,7 +395,10 @@ int main(int argc, char *argv[])
     sum = 0.; for (i = 0; i < no_nodes; ++i) sum += a[i];
     printf("sum(a) = %f\n", sum);
     sum = 0.; for (i = 0; i < no_nodes; ++i) sum += h[i];
-    printf("sum(h) = %f\n", sum);
+    printf("sum(h) = %f\n\n", sum);
+    
+    elapsed_time = (double)(end - begin) / CLOCKS_PER_SEC;
+    printf("Elapsed time: %.3fs\n", elapsed_time);
     
     /* un-mmapping data */
     munmap(row_ptr,   (no_nodes + 1) * sizeof(int));

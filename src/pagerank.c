@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <time.h>
 
 #define TOL 1.e-10
 #define MAX_ITER 200
@@ -17,7 +18,7 @@
 #define DNAME 1024
 #define PATH 1024
 #define MMAP 2048
-#define DEBUG
+/*#define DEBUG*/
 
 /* Data for compression */
 typedef struct 
@@ -74,6 +75,10 @@ int main(int argc, char *argv[])
     double d;
     double dist;
     int iter;
+    
+    /* Time elapsed data */
+    clock_t begin, end;
+    double elapsed_time;
     
     /* Extra data */
     int *out_links;
@@ -150,6 +155,7 @@ int main(int argc, char *argv[])
             if (out_links[i] == 0)
                 ++no_danglings;
         danglings = (int *) malloc(sizeof(int) * no_danglings);
+        printf("malloc danglings\n");
         j = 0;
         for (i = 0; i < no_nodes; ++i)
             if (out_links[i] == 0)
@@ -163,8 +169,11 @@ int main(int argc, char *argv[])
         
         /* csr matrix initialization */
         val = (double *) malloc(sizeof(double) * no_edges);
+        printf("malloc val\n");
         col_ind = (int *) malloc(sizeof(int) * no_edges);
+        printf("malloc col_ind\n");
         row_ptr = (int *) malloc(sizeof(int) * (no_nodes + 1));
+        printf("malloc row_ptr\n");
         ri = 0;
         row_ptr[ri] = 0;
         ci = 0;
@@ -185,6 +194,8 @@ int main(int argc, char *argv[])
         }
         while (ri < no_nodes)
             row_ptr[++ri] = ci;
+        
+        printf("CSR matrix filled\n");
 
 #ifdef DEBUG 
         printf("CSR Transposed matrix\n");
@@ -238,6 +249,7 @@ int main(int argc, char *argv[])
             fprintf(stderr, " [ERROR] Data could not be written in memory.\n");
             exit(EXIT_FAILURE);
         }
+        printf("Data written successfully!\n");
     }
     
     /* Reading CSR matrix metadata info from file */
@@ -315,6 +327,7 @@ int main(int argc, char *argv[])
     
     /* Computing PageRank */
     printf("Computing PageRank...\n");
+    begin = clock();
     while (dist > TOL && iter < MAX_ITER)
     {
 #ifdef DEBUG 
@@ -357,6 +370,7 @@ int main(int argc, char *argv[])
         
         ++iter;
     }
+    end = clock();
     printf("\riter %d\n", iter);
 #ifdef DEBUG 
     printf("p: ");
@@ -369,6 +383,9 @@ int main(int argc, char *argv[])
         sum += p[i];
     printf("Proof of correctness:\n");
     printf("sum(p) = %f\n\n", sum);
+    
+    elapsed_time = (double)(end - begin) / CLOCKS_PER_SEC;
+    printf("Elapsed time: %.3fs\n", elapsed_time);
     
     /* un-mmapping data */
     munmap(row_ptr, (no_nodes + 1) * sizeof(int));
