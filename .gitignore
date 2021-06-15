@@ -10,7 +10,12 @@ hits
 *.hits
 
 # Ignore all folders:
-*/
+PR_*/
+HITS_*/
+
+# Ignore all data files:
+data/*
 
 # Except for the following ones:
 !src/
+!data/.gitkeep
