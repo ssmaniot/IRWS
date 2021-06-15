@@ -9,9 +9,6 @@ hits
 *.pr
 *.hits
 
-# Ignore data files
-data/*
-
 # Ignore all folders:
 */
 
