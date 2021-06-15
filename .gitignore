@@ -12,6 +12,9 @@ hits
 *.pr
 *.hits 
 
+# Ignore data file:
+data/*
+
 # Except for the following ones:
 !src/
 !data/
