@@ -155,7 +155,6 @@ int main(int argc, char *argv[])
             if (out_links[i] == 0)
                 ++no_danglings;
         danglings = (int *) malloc(sizeof(int) * no_danglings);
-        printf("malloc danglings\n");
         j = 0;
         for (i = 0; i < no_nodes; ++i)
             if (out_links[i] == 0)
@@ -169,11 +168,8 @@ int main(int argc, char *argv[])
         
         /* csr matrix initialization */
         val = (double *) malloc(sizeof(double) * no_edges);
-        printf("malloc val\n");
         col_ind = (int *) malloc(sizeof(int) * no_edges);
-        printf("malloc col_ind\n");
         row_ptr = (int *) malloc(sizeof(int) * (no_nodes + 1));
-        printf("malloc row_ptr\n");
         ri = 0;
         row_ptr[ri] = 0;
         ci = 0;
