@@ -5,16 +5,16 @@ hits
 # Ignore all .o:
 *.o
 
+# Ignore results:
+*.pr
+*.hits
+
 # Ignore all folders:
 */
 
-# Ignore results:
-*.pr
-*.hits 
-
-# Ignore data file:
-data/*
-
 # Except for the following ones:
 !src/
-!data/
+!data/ 
+
+# But ignore the actual data 
+data/*
