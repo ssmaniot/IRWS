@@ -14,5 +14,5 @@ hits
 
 # Except for the following ones:
 !src/
-!/**/.gitkeep
+!data/.keep
 
