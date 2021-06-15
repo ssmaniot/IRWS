@@ -42,6 +42,7 @@ int main(int argc, char *argv[])
 {
     /* Data to save/load CSR matrix */
     FILE *pdata;
+    char fname[FNAME];
     char dir[DNAME];
     char row_ptr_p[PATH];
     char col_ind_p[PATH];
@@ -75,6 +76,7 @@ int main(int argc, char *argv[])
     double d;
     double dist;
     int iter;
+    char fres[PATH];
     
     /* Time elapsed data */
     clock_t begin, end;
@@ -92,10 +94,13 @@ int main(int argc, char *argv[])
     }
     
     /* Init data folder name */
+    strncpy(fname, argv[1] + 5, strlen(argv[1])-9);
+    fname[strlen(argv[1])-8] = '\0';
     strcpy(dir, "PR_");
-    strncpy(dir + 3, argv[1] + 5, strlen(argv[1])-9);
-    dir[strlen(argv[1])-6] = '/';
-    dir[strlen(argv[1])-5] = '\0';
+    dir[3] = '\0';
+    strcat(dir, fname);
+    dir[3+strlen(fname)] = '/';
+    dir[3+strlen(fname)+1] = '\0';
     
     /* Create CSR file names */
     strcpy(row_ptr_p, dir);   strcat(row_ptr_p, "row_ptr.bin");
@@ -106,11 +111,16 @@ int main(int argc, char *argv[])
     /* Create CSR metadata file */
     strcpy(csr_data_p, dir);  strcat(csr_data_p, "csr_data.bin");
     
+    /* Create file to save PageRank result */
+    strcpy(fres, fname);
+    strcat(fres, ".pr");
+    
     /* Check if input data has already been compressed. 
      * If data has NOT yet been compressed, then perform compression */
     if (stat(dir, &st) == -1)
     {
         printf("Input file data \"%s\" is not compressed, ready to perform compression...\n\n", argv[1]);
+        begin = clock();
         mkdir(dir, 0700);
     
         if ((pf = fopen(argv[1], "r")) == NULL)
@@ -246,6 +256,9 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
         printf("Data written successfully!\n");
+    
+        elapsed_time = (double)(clock() - begin) / CLOCKS_PER_SEC;
+        printf("Elapsed time: %.3fs\n\n", elapsed_time);
     }
     
     /* Reading CSR matrix metadata info from file */
@@ -389,8 +402,18 @@ int main(int argc, char *argv[])
     munmap(val, no_edges * sizeof(double));
     munmap(col_ind, no_nodes * sizeof(int));
     
+    /* Writing data back to memory */
+    err = (write_data(fres, (void *) p, sizeof(double), no_nodes) == EXIT_FAILURE);
+    
     /* Vectors of probability */
     free(p); free(p_new);
+        
+    /* Manage error from writing data to memory */
+    if (err)
+    {
+        fprintf(stderr, " [ERROR] PageRank result could not be written in memory.\n");
+        exit(EXIT_FAILURE);
+    }
     
     return EXIT_SUCCESS;
 }

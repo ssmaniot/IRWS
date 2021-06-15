@@ -8,6 +8,10 @@ hits
 # Ignore all folders:
 */
 
+# Ignore results:
+*.pr
+*.hits 
+
 # Except for the following ones:
 !src/
 !data/
