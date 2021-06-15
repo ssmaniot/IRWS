@@ -42,6 +42,7 @@ int main(int argc, char *argv[])
 {
     /* Data to save/load LCSR matrix */
     FILE *pdata;
+    char fname[FNAME];
     char dir[DNAME];
     /*   Matrix L            Matrix L^T         */
     char row_ptr_p[PATH],    row_ptr_tp[PATH];
@@ -70,6 +71,8 @@ int main(int argc, char *argv[])
     double *h, *h_new;
     double a_dist, h_dist;
     int iter;
+    char fauth[FNAME];
+    char fhub[FNAME];
     
     /* Time elapsed data */
     clock_t begin, end;
@@ -86,11 +89,13 @@ int main(int argc, char *argv[])
     }
     
     /* Init data folder name */
+    strncpy(fname, argv[1] + 5, strlen(argv[1])-9);
+    fname[strlen(argv[1])-8] = '\0';
     strcpy(dir, "HITS_");
-    strncpy(dir + 5, argv[1] + 5, strlen(argv[1])-9);
-    dir[strlen(argv[1])-4] = '/';
-    dir[strlen(argv[1])-3] = '\0';
-    printf("%s\n", dir);
+    dir[5] = '\0';
+    strcat(dir, fname);
+    dir[5+strlen(fname)] = '/';
+    dir[5+strlen(fname)+1] = '\0';
     
     /* Create LCSR file names */
     strcpy(row_ptr_p,   dir); strcat(row_ptr_p,   "row_ptr.bin");
@@ -102,6 +107,12 @@ int main(int argc, char *argv[])
     
     /* Create LCSR metadata file */
     strcpy(lcsr_data_p,  dir); strcat(lcsr_data_p,  "lcsr_data.bin");
+    
+    /* Create file to save HITS result */
+    strcpy(fauth, fname);
+    strcat(fauth, "_a.hits");
+    strcpy(fhub, fname);
+    strcat(fhub, "_h.hits");
     
     /* Check if input data has already been compressed. 
      * If data has NOT yet been compressed, then perform compression */
@@ -406,9 +417,22 @@ int main(int argc, char *argv[])
     munmap(col_ind,   no_edges * sizeof(int));
     munmap(col_ind_t, no_edges * sizeof(int));
     
+    /* Writing data back to memory */
+    err = (write_data(fauth, (void *) a, sizeof(double), no_nodes) == EXIT_FAILURE)
+       || (write_data(fhub,  (void *) h, sizeof(double), no_nodes) == EXIT_FAILURE);
+    
     /* Vectors of probability */
     free(a); free(a_new);
     free(h); free(h_new);
+        
+    /* Manage error from writing data to memory */
+    if (err)
+    {
+        if (stat(fauth, &st) == 0)
+            remove(fauth);
+        fprintf(stderr, " [ERROR] PageRank result could not be written in memory.\n");
+        exit(EXIT_FAILURE);
+    }
     
     exit(EXIT_SUCCESS);
 }
