@@ -8,6 +8,7 @@ hits
 # Ignore results:
 *.pr
 *.hits
+*.csv
 
 # Ignore all folders:
 PR_*/
