@@ -37,6 +37,7 @@ void print_vec_d(int *v, int n);
 void double_merge(int *from, int *to, int lo, int mid, int hi);
 void double_merge_sort(int *from, int *to, int lo, int hi);
 void sort_input_data(int *from, int *to, int n);
+int * index_sort_top_K(const double *v, size_t n, int top_K);
 
 int main(int argc, char *argv[])
 {
@@ -73,6 +74,7 @@ int main(int argc, char *argv[])
     int iter;
     char fauth[FNAME];
     char fhub[FNAME];
+    int top_K;
     
     /* Time elapsed data */
     clock_t begin, end;
@@ -82,9 +84,9 @@ int main(int argc, char *argv[])
     double sum;
     int err;
     
-    if (argc != 2)
+    if (argc != 2 && argc != 3)
     {
-        fprintf(stderr, " [ERROR] *1* argument required: ./pagerank <arg_name>\n");
+        fprintf(stderr, " [ERROR] *1* argument required: ./pagerank <arg_name> [<K>]\n");
         exit(EXIT_FAILURE);
     }
     
@@ -410,6 +412,143 @@ int main(int argc, char *argv[])
     
     elapsed_time = (double)(end - begin) / CLOCKS_PER_SEC;
     printf("Elapsed time: %.3fs\n", elapsed_time);
+
+    /* Computing top-K Jaccard coefficients */
+    if (argc > 2) 
+    {
+        double **jaccard_coefficients_a, **jaccard_coefficients_h;
+        int *sorted_idx_a, *sorted_idx_h;
+        int *degs;
+        char topk_jac_fname[512];
+        double jaccard_coefficient;
+        int size_int, size_uni;
+        int i, j, k;
+        int ii, jj;
+
+        sscanf(argv[2], "%d", &top_K);
+
+        /* Creating the K x K matrixes for the top-K Jaccard Coefficients */
+        jaccard_coefficients_a = (double **) malloc(top_K * sizeof(double *));
+        jaccard_coefficients_h = (double **) malloc(top_K * sizeof(double *));
+        for (i = 0; i < top_K; ++i)
+        {
+            jaccard_coefficients_a[i] = (double *) calloc(top_K, sizeof(double));
+            jaccard_coefficients_h[i] = (double *) calloc(top_K, sizeof(double));
+        }
+
+        /* Computing the top-K nodes for each distribution */
+        sorted_idx_a = index_sort_top_K(a, no_nodes, top_K);
+        sorted_idx_h = index_sort_top_K(h, no_nodes, top_K);
+
+        printf("Top-K nodes (a): "); print_vec_d(sorted_idx_a, top_K); 
+        printf("Top-K nodes (h): "); print_vec_d(sorted_idx_h, top_K); 
+
+        degs = (int *) malloc(sizeof(int) * top_K);
+        for (k = 0; k < top_K; ++k) {
+            i = sorted_idx_a[k];
+            degs[k] = row_ptr_t[i+1] - row_ptr_t[i];
+        }
+        printf("Degree distribution (a): "); print_vec_d(degs, top_K);
+
+        /* Creating CSV file for storing the results */
+        sprintf(topk_jac_fname, "%s_k%d_a.csv", fname, top_K);
+    
+        if ((pf = fopen(topk_jac_fname, "w")) == NULL)
+        {
+            fprintf(stderr, " [ERROR] cannot open output file \"%s\"\n", topk_jac_fname);
+            exit(EXIT_FAILURE);
+        }
+        fprintf(pf, "n1,n2,jac\n");
+
+        /* Computing Jaccard with a */
+        for (i = 0; i < top_K; ++i)
+        {
+            for (j = i + 1; j < top_K; ++j)
+            {
+                size_int = 0;
+                size_uni = 0;
+
+                ii = row_ptr_t[sorted_idx_a[i]];
+                jj = row_ptr_t[sorted_idx_a[j]];
+                while (ii < row_ptr_t[ii+1] && jj < row_ptr_t[jj+1])
+                {
+                    if (col_ind_t[ii] < col_ind_t[jj]) 
+                        ++ii;
+                    else if (col_ind_t[ii] > col_ind_t[jj])
+                        ++jj;
+                    else {
+                        ++size_int;
+                        ++ii;
+                        ++jj;
+                    }
+                    ++size_uni;
+                }
+                while (ii < row_ptr_t[ii+1])
+                {
+                    ++ii;
+                    ++size_uni;
+                }
+                while (jj < row_ptr_t[jj+1])
+                {
+                    ++jj;
+                    ++size_uni;
+                }
+                jaccard_coefficient = ((double) size_int) / ((double) size_uni);
+                jaccard_coefficients_a[i][j] = jaccard_coefficient;
+                jaccard_coefficients_a[j][i] = jaccard_coefficient;
+                printf("J(%d,%d) = %.3f\n", sorted_idx_a[i], sorted_idx_a[j], jaccard_coefficient);
+                fprintf(pf, "%d,%d,%.3f\n", sorted_idx_a[i], sorted_idx_a[j], jaccard_coefficient);
+            }
+        }
+        printf("\n");
+
+        fclose(pf);
+        
+        /* Computing Jaccard with h */
+        for (k = 0; k < top_K; ++k) {
+            i = sorted_idx_h[k];
+            degs[k] = row_ptr_t[i+1] - row_ptr_t[i];
+        }
+        printf("Degree distribution (h): "); print_vec_d(degs, top_K);
+
+        for (i = 0; i < top_K; ++i)
+        {
+            for (j = i; j < top_K; ++j)
+            {
+                size_int = 0;
+                size_uni = 0;
+
+                ii = row_ptr_t[sorted_idx_h[i]];
+                jj = row_ptr_t[sorted_idx_h[j]];
+                while (ii < row_ptr_t[i+1] && jj < row_ptr_t[j+1])
+                {
+                    if (col_ind_t[ii] < col_ind_t[jj]) 
+                        ++ii;
+                    else if (col_ind_t[ii] < col_ind_t[jj])
+                        ++jj;
+                    else {
+                        ++size_int;
+                        ++ii;
+                        ++jj;
+                    }
+                    ++size_uni;
+                }
+                jaccard_coefficient = ((double) size_int) / ((double) size_uni);
+                jaccard_coefficients_h[i][j] = jaccard_coefficient;
+                jaccard_coefficients_h[j][i] = jaccard_coefficient;
+            }
+        }
+
+        free(degs);
+
+        for (i = 0; i < top_K; ++i)
+        {
+            free(jaccard_coefficients_a[i]);
+            free(jaccard_coefficients_h[i]);
+        }
+        free(jaccard_coefficients_a); free(jaccard_coefficients_h);
+        free(sorted_idx_a); free(sorted_idx_h);
+    }
     
     /* un-mmapping data */
     munmap(row_ptr,   (no_nodes + 1) * sizeof(int));
@@ -579,4 +718,29 @@ void double_merge_sort(int *from, int *to, int lo, int hi)
 void sort_input_data(int *from, int *to, int n)
 {
     double_merge_sort(from, to, 0, n);
+}
+
+int cmp_ptr(const void *a, const void *b)
+{
+    const double **L = (const double **) a;
+    const double **R = (const double **) b;
+
+    return (**R < **L) - (**L < **R);
+}
+
+int * index_sort_top_K(const double *v, size_t n, int top_K)
+{
+    size_t i;
+    const double **ptrs;
+    int *idx;
+    
+    ptrs = (const double **) malloc(n * sizeof(const double **));
+    for (i = 0; i < n; ++i) ptrs[i] = v + i;
+    printf("Sorting pointers...");
+    qsort(ptrs, n, sizeof(const double *), cmp_ptr);
+    printf(" Done.\n");
+    idx = (int *) malloc(sizeof(int) * top_K);
+    for (i = 0; i < top_K; ++i) idx[i] = ptrs[n - i - 1] - v;
+    free(ptrs);
+    return idx;
 }
